@@ -1,18 +1,44 @@
-# Getting Started with Create React App
+# Project Management Dashboard
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React-based dashboard for managing support and maintenance clients. Client data is persisted in a JSON file via a Node.js/Express backend server.
+
+## Features
+
+- Add, edit, and archive clients
+- Persistent data storage in JSON file (`data/clients.json`)
+- Modern, responsive UI
+- Separate views for active and archived clients
+
+## Setup
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Start the backend server (in one terminal):
+```bash
+npm run server
+```
+The server will run on `http://localhost:3001`
+
+3. Start the React app (in another terminal):
+```bash
+npm start
+```
+The app will open at `http://localhost:3000`
 
 ## Available Scripts
 
-In the project directory, you can run:
-
 ### `npm start`
 
-Runs the app in the development mode.\
+Runs the React app in development mode.\
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### `npm run server`
+
+Starts the Express backend server on port 3001.\
+The server handles API requests and manages the `data/clients.json` file.
 
 ### `npm test`
 

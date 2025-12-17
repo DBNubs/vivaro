@@ -1,0 +1,26 @@
+{
+  "id": "1766007321382",
+  "name": "Georgia Department of Administration",
+  "status": "active",
+  "notes": "This is DoAS, Team Georgia and Georgia Careers",
+  "contacts": [
+    {
+      "id": "1766007317784",
+      "name": "Shweta Mehrotra",
+      "email": "Shweta.Mehrotra@doas.ga.gov",
+      "title": "",
+      "primary": true
+    }
+  ],
+  "sows": [
+    {
+      "id": "1766007215135",
+      "startDate": "2025-04-01T00:00:00.000Z",
+      "endDate": "2026-06-30T00:00:00.000Z",
+      "amount": "119700",
+      "description": "",
+      "current": true
+    }
+  ],
+  "createdAt": "2025-12-17T21:35:21.382Z"
+}

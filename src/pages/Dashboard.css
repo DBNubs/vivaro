@@ -1,0 +1,120 @@
+.reminders-alert {
+  background: #fff9e6;
+  border-left: 4px solid #ffc107;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.reminders-alert.alert-overdue {
+  background: #fee;
+  border-left-color: #dc3545;
+}
+
+.reminders-alert.alert-due-today {
+  background: #fff9e6;
+  border-left-color: #ffc107;
+}
+
+.reminders-alert-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.reminders-alert-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.reminders-alert-text {
+  flex: 1;
+  color: #333;
+}
+
+.reminders-alert-text strong {
+  font-size: 1rem;
+  color: #333;
+}
+
+.reminders-alert-details {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.reminders-alert-projects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.reminder-project-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  color: #00637C;
+  text-decoration: none;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reminder-project-link:hover {
+  background: #f0f0f0;
+  border-color: #00637C;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.reminder-count {
+  color: #666;
+  font-weight: normal;
+}
+
+.overdue-badge {
+  background: #dc3545;
+  color: white;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.alert-overdue .reminder-project-link {
+  border-color: #dc3545;
+}
+
+.alert-overdue .reminder-project-link:hover {
+  border-color: #c82333;
+  background: #fff5f5;
+}
+
+@media (max-width: 768px) {
+  .reminders-alert {
+    padding: 1rem;
+  }
+
+  .reminders-alert-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .reminders-alert-projects {
+    flex-direction: column;
+  }
+
+  .reminder-project-link {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+

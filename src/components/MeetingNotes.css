@@ -1,0 +1,247 @@
+.notes-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.notes-filter label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.notes-filter-select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background: white;
+  cursor: pointer;
+  min-width: 150px;
+}
+
+.notes-filter-select:focus {
+  outline: none;
+  border-color: #00637C;
+  box-shadow: 0 0 0 3px rgba(0, 99, 124, 0.1);
+}
+
+.meeting-notes-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.meeting-note-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.meeting-note-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.meeting-note-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  cursor: pointer;
+}
+
+.meeting-note-info {
+  flex: 1;
+}
+
+.meeting-note-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.note-label-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #00637C;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.meeting-note-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.meeting-note-title {
+  margin: 0;
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.note-label-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #00637C;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.meeting-note-date {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.meeting-note-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+}
+
+.btn-icon:hover {
+  background-color: #f0f0f0;
+  color: #00637C;
+}
+
+.btn-icon.btn-delete:hover {
+  background-color: #fee;
+  color: #c33;
+}
+
+.btn-icon:active {
+  transform: scale(0.95);
+}
+
+.btn-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.meeting-note-content {
+  padding: 0 1.5rem 1.5rem 1.5rem;
+  border-top: 1px solid #eee;
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.meeting-note-text {
+  color: #555;
+  line-height: 1.8;
+}
+
+.meeting-note-text p {
+  margin: 0 0 1rem 0;
+}
+
+.meeting-note-text p:last-child {
+  margin-bottom: 0;
+}
+
+.meeting-note-text h1,
+.meeting-note-text h2,
+.meeting-note-text h3,
+.meeting-note-text h4,
+.meeting-note-text h5,
+.meeting-note-text h6 {
+  margin: 1.5rem 0 1rem 0;
+  color: #333;
+  font-weight: 600;
+}
+
+.meeting-note-text h1:first-child,
+.meeting-note-text h2:first-child,
+.meeting-note-text h3:first-child {
+  margin-top: 0;
+}
+
+.meeting-note-text ul,
+.meeting-note-text ol {
+  margin: 1rem 0;
+  padding-left: 2rem;
+}
+
+.meeting-note-text li {
+  margin: 0.5rem 0;
+}
+
+.meeting-note-text blockquote {
+  margin: 1rem 0;
+  padding: 1rem;
+  border-left: 4px solid #00637C;
+  background-color: #f5f7fa;
+  font-style: italic;
+}
+
+.meeting-note-text table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.meeting-note-text table td,
+.meeting-note-text table th {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+}
+
+.meeting-note-text table th {
+  background-color: #f5f7fa;
+  font-weight: 600;
+}
+
+.meeting-note-text a {
+  color: #00637C;
+  text-decoration: underline;
+}
+
+.meeting-note-text a:hover {
+  color: #004D5F;
+}
+
+.meeting-notes-empty {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.meeting-notes-empty p {
+  margin: 0;
+  font-size: 1rem;
+}
+

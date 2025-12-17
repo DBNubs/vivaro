@@ -1,0 +1,33 @@
+{
+  "id": "1766007118922",
+  "name": "Georgia Department of Agriculture",
+  "status": "active",
+  "notes": "",
+  "contacts": [
+    {
+      "id": "1766006992350",
+      "name": "Destiney Gary",
+      "email": "destiney.gary@agr.georgia.gov",
+      "title": "DGA Webmaster",
+      "primary": true
+    },
+    {
+      "id": "1766007117234",
+      "name": "Maris Wynn",
+      "email": "maris.wynn@agr.georgia.gov",
+      "title": " It Program Manager",
+      "primary": false
+    }
+  ],
+  "sows": [
+    {
+      "id": "1766006954990",
+      "startDate": "2025-07-01T00:00:00.000Z",
+      "endDate": "2026-06-30T00:00:00.000Z",
+      "amount": "63000",
+      "description": "",
+      "current": true
+    }
+  ],
+  "createdAt": "2025-12-17T21:31:58.922Z"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "1766006737227",
+  "name": "Climate xChange",
+  "status": "active",
+  "notes": "",
+  "contacts": [
+    {
+      "id": "1766006667917",
+      "name": "Ruby Wincele",
+      "email": "rwincele@climate-xchange.org",
+      "title": "Policy and Research Manager Policy and Research Manager",
+      "primary": true
+    },
+    {
+      "id": "1766006733339",
+      "name": "Paola Ferreira Miani  ",
+      "email": "paola@climate-xchange.org",
+      "title": "Executive Director",
+      "primary": false
+    }
+  ],
+  "sows": [
+    {
+      "id": "1766006549262",
+      "startDate": "2025-07-16T00:00:00.000Z",
+      "endDate": "2026-07-15T00:00:00.000Z",
+      "amount": "72000",
+      "description": "",
+      "current": true
+    }
+  ],
+  "createdAt": "2025-12-17T21:25:37.227Z"
+}
