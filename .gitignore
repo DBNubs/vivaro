@@ -21,3 +21,12 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Electron
+/dist
+/out
+*.dmg
+*.exe
+*.AppImage
+*.deb
+*.rpm

@@ -6,7 +6,8 @@ const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const DATA_DIR = path.join(__dirname, 'data');
+// Use environment variable for data directory if set (from Electron), otherwise use default
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const OLD_DATA_FILE = path.join(DATA_DIR, 'clients.json');
 
 // Multer will be initialized after helper functions are defined
@@ -16,6 +17,20 @@ let upload;
 app.use(cors());
 app.use(express.json());
 app.use('/api/files', express.static(path.join(__dirname, 'data')));
+
+// Serve React app in production (for Electron)
+// Only serve static files if we're in Electron or production mode
+if (process.env.ELECTRON || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
+  const buildPath = path.join(__dirname, 'build');
+  app.use(express.static(buildPath));
+  app.get('*', (req, res) => {
+    // Don't serve HTML for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    res.sendFile(path.join(buildPath, 'index.html'));
+  });
+}
 
 // Ensure data directory exists
 async function ensureDataDirectory() {
@@ -1206,10 +1221,31 @@ function initializeMulter() {
 async function startServer() {
   await ensureDataDirectory();
   await migrateOldData();
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, 'localhost', () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Data directory: ${DATA_DIR}`);
   });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n❌ Error: Port ${PORT} is already in use.`);
+      console.error(`\nTo fix this, you can:`);
+      console.error(`  1. Kill the process using port ${PORT}:`);
+      console.error(`     lsof -ti:${PORT} | xargs kill -9`);
+      console.error(`  2. Or use a different port:`);
+      console.error(`     PORT=3002 npm run server\n`);
+      process.exit(1);
+    } else {
+      console.error('Server error:', err);
+      process.exit(1);
+    }
+  });
 }
 
+// Auto-start the server
+// If ELECTRON is set, we're being forked by Electron, so start the server
+// If ELECTRON is not set, we're running standalone, so also start the server
 startServer().catch(console.error);
+
+// Export for Electron to use
+module.exports = { app, startServer };
