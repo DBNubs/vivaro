@@ -70,14 +70,14 @@
 }
 
 .ckeditor-wrapper .ck-editor__editable:focus {
-  border-color: #00637C;
+  border-color: var(--primary-500);
   box-shadow: 0 0 0 3px rgba(0, 99, 124, 0.1);
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #00637C;
+  border-color: var(--primary-500);
   box-shadow: 0 0 0 3px rgba(0, 99, 124, 0.1);
 }
 
@@ -99,12 +99,12 @@
 }
 
 .btn-primary {
-  background-color: #00637C;
+  background-color: var(--primary-500);
   color: white;
 }
 
 .btn-primary:hover {
-  background-color: #004D5F;
+  background-color: var(--primary-600);
 }
 
 .btn-secondary {

@@ -9,13 +9,13 @@
 }
 
 .app-header {
-  background: linear-gradient(135deg, var(--primary-800) 0%, var(--primary-700) 30%, var(--primary-600) 70%, var(--primary-500) 100%);
-  color: white;
+  background: linear-gradient(135deg, #1a3a52 0%, #2d5a7a 100%);
+  color: #ffffff;
   padding: 0;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1);
   position: relative;
   overflow: hidden;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   z-index: 100;
 }
 
@@ -27,9 +27,10 @@
   right: 0;
   bottom: 0;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, transparent 40%),
-    radial-gradient(ellipse at top left, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+    linear-gradient(135deg, var(--primary-500) 0%, transparent 40%),
+    radial-gradient(ellipse at top left, rgba(21, 101, 192, 0.2) 0%, transparent 60%);
   pointer-events: none;
+  opacity: 0.4;
 }
 
 .app-header::after {
@@ -37,10 +38,17 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 40%;
+  width: 50%;
   height: 100%;
-  background: radial-gradient(ellipse at top right, rgba(255, 255, 255, 0.18) 0%, transparent 75%);
+  background: radial-gradient(ellipse at top right, rgba(66, 165, 245, 0.15) 0%, transparent 70%);
   pointer-events: none;
+}
+
+/* Ensure sufficient contrast - darken background slightly if needed */
+@media (prefers-contrast: high) {
+  .app-header {
+    background: #1a3a52;
+  }
 }
 
 .header-container {
@@ -59,10 +67,19 @@
   gap: 1.5rem;
   transition: opacity var(--transition-base);
   width: fit-content;
+  outline: none;
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  margin: -0.5rem;
 }
 
 .header-brand:hover {
-  opacity: 0.98;
+  opacity: 0.95;
+}
+
+.header-brand:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
 }
 
 .header-logo {
@@ -72,41 +89,29 @@
   flex-shrink: 0;
   width: 64px;
   height: 64px;
-  background: rgba(255, 255, 255, 0.15);
+  background: #ffffff;
   border-radius: var(--radius-xl);
-  backdrop-filter: blur(16px) saturate(180%);
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
   transition: all var(--transition-base);
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-.header-logo::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transform: rotate(45deg);
-  transition: transform 0.6s;
-}
-
-.header-brand:hover .header-logo::before {
-  transform: rotate(45deg) translate(100%, 100%);
+.header-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform var(--transition-base);
 }
 
 .header-brand:hover .header-logo {
   transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.35);
-  box-shadow:
-    0 6px 20px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.header-brand:hover .header-logo-img {
+  transform: scale(1.03);
 }
 
 .header-text {
@@ -121,25 +126,19 @@
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  text-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.2),
-    0 1px 2px rgba(0, 0, 0, 0.15);
   line-height: 1.1;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.95) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .subtitle {
   margin: 0;
-  opacity: 0.92;
   font-size: 0.8125rem;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  color: rgba(255, 255, 255, 0.9);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .app-main {
@@ -189,14 +188,14 @@
 }
 
 .toggle-btn.active {
-  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-400) 100%);
   color: white;
   box-shadow: var(--shadow-sm);
 }
 
 .btn-add {
   padding: 0.875rem 2rem;
-  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-400) 100%);
   color: white;
   border: none;
   border-radius: var(--radius-lg);
@@ -212,7 +211,7 @@
 }
 
 .btn-add:hover {
-  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-500) 100%);
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }

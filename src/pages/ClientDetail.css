@@ -21,13 +21,13 @@
 
 .contact-display-item.primary-contact {
   background: #e8f4f8;
-  border: 1px solid #00637C;
+  border: 1px solid var(--primary-500);
 }
 
 .contact-display-item .primary-badge {
   display: inline-block;
   padding: 0.125rem 0.5rem;
-  background: #00637C;
+  background: var(--primary-500);
   color: white;
   font-size: 0.7rem;
   font-weight: 600;
@@ -54,7 +54,7 @@
 }
 
 .contact-display-email a {
-  color: #00637C;
+  color: var(--primary-500);
   text-decoration: none;
 }
 
@@ -73,20 +73,20 @@
   padding: 1rem;
   background: #f5f7fa;
   border-radius: 4px;
-  border-left: 3px solid #00637C;
+  border-left: 3px solid var(--primary-500);
   position: relative;
 }
 
 .sow-display-item.current-sow {
   background: #e8f4f8;
-  border-left: 3px solid #00637C;
-  border: 1px solid #00637C;
+  border-left: 3px solid var(--primary-500);
+  border: 1px solid var(--primary-500);
 }
 
 .sow-display-item .current-sow-badge {
   display: inline-block;
   padding: 0.125rem 0.5rem;
-  background: #00637C;
+  background: var(--primary-500);
   color: white;
   font-size: 0.7rem;
   font-weight: 600;
@@ -125,7 +125,7 @@
 .sow-display-amount {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #00637C;
+  color: var(--primary-500);
   margin-bottom: 0.5rem;
 }
 
@@ -160,7 +160,7 @@
 }
 
 .past-sows-legend:hover {
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .past-sows-toggle {
@@ -168,7 +168,7 @@
   width: 1rem;
   text-align: center;
   font-size: 0.75rem;
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .sows-summary {
@@ -176,7 +176,7 @@
   padding: 1rem;
   background: #f5f7fa;
   border-radius: 4px;
-  border-top: 2px solid #00637C;
+  border-top: 2px solid var(--primary-500);
 }
 
 .sows-summary-row {
@@ -194,7 +194,7 @@
 .sows-summary-row.sows-summary-total {
   margin-top: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 2px solid #00637C;
+  border-top: 2px solid var(--primary-500);
   font-weight: 600;
 }
 
@@ -211,13 +211,13 @@
 
 .sows-summary-amount {
   font-size: 0.9rem;
-  color: #00637C;
+  color: var(--primary-500);
   font-weight: 600;
 }
 
 .sows-summary-row.sows-summary-total .sows-summary-amount {
   font-size: 1.1rem;
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .client-detail-header {
@@ -454,13 +454,13 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-400) 100%);
   color: white;
   box-shadow: var(--shadow-md);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-500) 100%);
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }

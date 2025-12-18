@@ -39,7 +39,7 @@
 
 .contact-input:focus {
   outline: none;
-  border-color: #00637C;
+  border-color: var(--primary-500);
   box-shadow: 0 0 0 3px rgba(0, 99, 124, 0.1);
 }
 
@@ -106,7 +106,7 @@
 }
 
 .contact-email a {
-  color: #00637C;
+  color: var(--primary-500);
   text-decoration: none;
 }
 
@@ -135,12 +135,12 @@
 
 .btn-icon:hover {
   background-color: #f0f0f0;
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .btn-icon.btn-edit:hover {
   background-color: #e8f4f8;
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .btn-icon.btn-delete:hover {

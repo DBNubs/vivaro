@@ -99,7 +99,7 @@
 }
 
 .tab-badge {
-  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-400) 100%);
   color: white;
   border-radius: var(--radius-full);
   padding: 0.125rem 0.625rem;
@@ -112,7 +112,7 @@
 }
 
 .tab-button.active .tab-badge {
-  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-500) 100%);
   box-shadow: var(--shadow-md);
 }
 

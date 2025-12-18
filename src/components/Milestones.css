@@ -232,7 +232,7 @@
 
 .btn-icon:hover {
   background-color: #f0f0f0;
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .btn-icon.btn-delete:hover {

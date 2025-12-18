@@ -134,7 +134,7 @@
 
 .contact-item-form.primary-contact {
   background: #e8f4f8;
-  border: 1px solid #00637C;
+  border: 1px solid var(--primary-500);
 }
 
 .contact-info-form {
@@ -145,7 +145,7 @@
 .primary-badge {
   display: inline-block;
   padding: 0.125rem 0.5rem;
-  background: #00637C;
+  background: var(--primary-500);
   color: white;
   font-size: 0.7rem;
   font-weight: 600;
@@ -170,7 +170,7 @@
 
 .contact-email-form {
   font-size: 0.8rem;
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .contact-actions-form {
@@ -197,7 +197,7 @@
 
 .btn-icon-form.btn-edit-form:hover {
   background-color: #e8f4f8;
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .btn-icon-form.btn-delete-form:hover {
@@ -228,7 +228,7 @@
 
 .contact-input-form:focus {
   outline: none;
-  border-color: #00637C;
+  border-color: var(--primary-500);
   box-shadow: 0 0 0 2px rgba(0, 99, 124, 0.1);
 }
 
@@ -280,7 +280,7 @@
 
 .sow-item-form.current-sow {
   background: #e8f4f8;
-  border: 1px solid #00637C;
+  border: 1px solid var(--primary-500);
 }
 
 .sow-info-form {
@@ -291,7 +291,7 @@
 .current-sow-badge {
   display: inline-block;
   padding: 0.125rem 0.5rem;
-  background: #00637C;
+  background: var(--primary-500);
   color: white;
   font-size: 0.7rem;
   font-weight: 600;
@@ -328,7 +328,7 @@
 .sow-amount-form {
   font-size: 1rem;
   font-weight: 600;
-  color: #00637C;
+  color: var(--primary-500);
   margin-bottom: 0.25rem;
 }
 
@@ -369,7 +369,7 @@
 
 .sow-input-form:focus {
   outline: none;
-  border-color: #00637C;
+  border-color: var(--primary-500);
   box-shadow: 0 0 0 2px rgba(0, 99, 124, 0.1);
 }
 
@@ -419,7 +419,7 @@
 }
 
 .past-sows-legend:hover {
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .past-sows-toggle {
@@ -427,7 +427,7 @@
   width: 1rem;
   text-align: center;
   font-size: 0.75rem;
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .sows-summary {
@@ -435,7 +435,7 @@
   padding: 1rem;
   background: #f5f7fa;
   border-radius: 4px;
-  border-top: 2px solid #00637C;
+  border-top: 2px solid var(--primary-500);
 }
 
 .sows-summary-row {
@@ -453,7 +453,7 @@
 .sows-summary-row.sows-summary-total {
   margin-top: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 2px solid #00637C;
+  border-top: 2px solid var(--primary-500);
   font-weight: 600;
 }
 
@@ -470,13 +470,13 @@
 
 .sows-summary-amount {
   font-size: 0.9rem;
-  color: #00637C;
+  color: var(--primary-500);
   font-weight: 600;
 }
 
 .sows-summary-row.sows-summary-total .sows-summary-amount {
   font-size: 1.1rem;
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .sow-form-actions-form {
@@ -508,13 +508,13 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-400) 100%);
   color: white;
   box-shadow: var(--shadow-md);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-500) 100%);
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }

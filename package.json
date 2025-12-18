@@ -23,12 +23,14 @@
     ],
     "mac": {
       "category": "public.app-category.business",
+      "icon": "build/icons/icon.icns",
       "target": [
         "dmg",
         "zip"
       ]
     },
     "win": {
+      "icon": "build/icons/icon.ico",
       "target": [
         "nsis",
         "portable"
@@ -42,12 +44,12 @@
     }
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-build-classic": "^43.1.0",
+    "@ckeditor/ckeditor5-react": "^11.0.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^13.5.0",
-    "@ckeditor/ckeditor5-build-classic": "^43.1.0",
-    "@ckeditor/ckeditor5-react": "^11.0.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "multer": "^1.4.5-lts.1",
@@ -58,8 +60,10 @@
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "electron": "^32.0.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "electron-icon-builder": "^2.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -73,7 +77,9 @@
     "dist": "npm run build && electron-builder",
     "dist-mac": "npm run build && electron-builder --mac",
     "dist-win": "npm run build && electron-builder --win",
-    "dist-linux": "npm run build && electron-builder --linux"
+    "dist-linux": "npm run build && electron-builder --linux",
+    "icon:convert": "node convert-icon.js",
+    "icon:generate": "npm run icon:convert && npx electron-icon-builder --input=./icon.png --output=./build --flatten"
   },
   "eslintConfig": {
     "extends": [

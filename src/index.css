@@ -5,17 +5,17 @@
 }
 
 :root {
-  /* Enterprise Color Palette */
-  --primary-50: #e6f4f7;
-  --primary-100: #b3dde8;
-  --primary-200: #80c6d9;
-  --primary-300: #4dafca;
-  --primary-400: #1a98bb;
-  --primary-500: #00637C;
-  --primary-600: #005066;
-  --primary-700: #003d50;
-  --primary-800: #002a3a;
-  --primary-900: #001724;
+  /* Enterprise Color Palette - Vivaro Blue */
+  --primary-50: #e3f2fd;
+  --primary-100: #bbdefb;
+  --primary-200: #90caf9;
+  --primary-300: #64b5f6;
+  --primary-400: #42A5F5;
+  --primary-500: #1565C0;
+  --primary-600: #0d47a1;
+  --primary-700: #0a3d91;
+  --primary-800: #083278;
+  --primary-900: #051f4d;
 
   /* Neutral Colors */
   --gray-50: #f9fafb;

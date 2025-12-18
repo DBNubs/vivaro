@@ -25,7 +25,7 @@
 
 .contact-form-container h2 {
   margin: 0 0 1.5rem 0;
-  color: #00637C;
+  color: var(--primary-500);
   font-size: 1.5rem;
 }
 
@@ -55,7 +55,7 @@
 .contact-form-container input[type="text"]:focus,
 .contact-form-container input[type="email"]:focus {
   outline: none;
-  border-color: #00637C;
+  border-color: var(--primary-500);
   box-shadow: 0 0 0 3px rgba(0, 99, 124, 0.1);
 }
 
@@ -77,12 +77,12 @@
 }
 
 .contact-form-container .btn-primary {
-  background: linear-gradient(135deg, #00637C 0%, #0088A8 100%);
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-400) 100%);
   color: white;
 }
 
 .contact-form-container .btn-primary:hover {
-  background: linear-gradient(135deg, #004D5F 0%, #00637C 100%);
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-500) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 99, 124, 0.3);
 }

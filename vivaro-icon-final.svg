@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1565C0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#42A5F5;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="rayGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0.7" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded square background -->
+  <rect x="0" y="0" width="512" height="512" rx="115" fill="url(#bgGradient)"/>
+  
+  <!-- Center circle -->
+  <circle cx="256" cy="256" r="40" fill="#FFFFFF" opacity="0.95"/>
+  
+  <!-- 12 rays alternating long/short for dynamic feel -->
+  <g stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" opacity="0.9">
+    <!-- Long rays (main 4 directions) -->
+    <line x1="256" y1="216" x2="256" y2="110"/>
+    <line x1="296" y1="256" x2="402" y2="256"/>
+    <line x1="256" y1="296" x2="256" y2="402"/>
+    <line x1="216" y1="256" x2="110" y2="256"/>
+    
+    <!-- Medium rays (diagonals) -->
+    <line x1="290" y1="222" x2="355" y2="157" opacity="0.7"/>
+    <line x1="290" y1="290" x2="355" y2="355" opacity="0.7"/>
+    <line x1="222" y1="290" x2="157" y2="355" opacity="0.7"/>
+    <line x1="222" y1="222" x2="157" y2="157" opacity="0.7"/>
+    
+    <!-- Short rays (between) -->
+    <line x1="278" y1="208" x2="295" y2="175" opacity="0.5"/>
+    <line x1="304" y1="234" x2="337" y2="217" opacity="0.5"/>
+    <line x1="304" y1="278" x2="337" y2="295" opacity="0.5"/>
+    <line x1="278" y1="304" x2="295" y2="337" opacity="0.5"/>
+    <line x1="234" y1="304" x2="217" y2="337" opacity="0.5"/>
+    <line x1="208" y1="278" x2="175" y2="295" opacity="0.5"/>
+    <line x1="208" y1="234" x2="175" y2="217" opacity="0.5"/>
+    <line x1="234" y1="208" x2="217" y2="175" opacity="0.5"/>
+  </g>
+</svg>

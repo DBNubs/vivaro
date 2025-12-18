@@ -157,7 +157,7 @@
   display: block;
   font-size: 1rem;
   font-weight: 600;
-  color: #00637C;
+  color: var(--primary-500);
   text-decoration: none;
   margin-bottom: 0.25rem;
   word-break: break-word;
@@ -165,7 +165,7 @@
 
 .resource-title:hover {
   text-decoration: underline;
-  color: #004D5F;
+  color: var(--primary-600);
 }
 
 .resource-description {
@@ -200,12 +200,12 @@
 
 .btn-icon:hover {
   background-color: #f0f0f0;
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .btn-icon.btn-edit:hover {
   background-color: #e8f4f8;
-  color: #00637C;
+  color: var(--primary-500);
 }
 
 .btn-icon.btn-delete:hover {
