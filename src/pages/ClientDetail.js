@@ -501,13 +501,16 @@ function ClientDetail() {
       )}
 
       <div className="client-detail-card">
-        <div className="client-detail-status">
-          <span className={`status-badge ${client.status}`}>
-            {client.status === 'active' ? 'Active' : 'Archived'}
-          </span>
+        <div className="client-detail-header-section">
+          <div className="client-detail-title-group">
+            <div className="client-detail-status">
+              <span className={`status-badge ${client.status}`}>
+                {client.status === 'active' ? 'Active' : 'Archived'}
+              </span>
+            </div>
+            <h1 className="client-detail-name">{client.name}</h1>
+          </div>
         </div>
-
-        <h1 className="client-detail-name">{client.name}</h1>
 
         <div className="client-detail-info">
           {client.sows && client.sows.length > 0 && (
@@ -771,25 +774,27 @@ function ClientDetail() {
             </div>
           )}
 
-          <div className="info-section">
-            <h3>Created</h3>
-            <p>{client.createdAt ? new Date(client.createdAt).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            }) : 'N/A'}</p>
-          </div>
-
-          {client.archivedAt && (
+          <div className="client-detail-info-meta">
             <div className="info-section">
-              <h3>Archived</h3>
-              <p>{new Date(client.archivedAt).toLocaleDateString('en-US', {
+              <h3>Created</h3>
+              <p>{client.createdAt ? new Date(client.createdAt).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
-              })}</p>
+              }) : 'N/A'}</p>
             </div>
-          )}
+
+            {client.archivedAt && (
+              <div className="info-section">
+                <h3>Archived</h3>
+                <p>{new Date(client.archivedAt).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
