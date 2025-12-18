@@ -1,4 +1,4 @@
-# Project Management Dashboard
+# Vivaro
 
 A React-based dashboard for managing support and maintenance clients. Client data is persisted in a JSON file via a Node.js/Express backend server.
 

@@ -38,14 +38,17 @@
 
 .meeting-note-card {
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
   overflow: hidden;
-  transition: box-shadow 0.2s;
+  transition: all var(--transition-base);
+  border: 1px solid var(--gray-200);
 }
 
 .meeting-note-card:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-2px);
+  border-color: var(--primary-200);
 }
 
 .meeting-note-header {
@@ -68,43 +71,25 @@
   margin-bottom: 0.5rem;
 }
 
-.note-label-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  background: #00637C;
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.meeting-note-title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.5rem;
-}
-
 .meeting-note-title {
   margin: 0;
-  color: #333;
-  font-size: 1.1rem;
-  font-weight: 600;
+  color: var(--gray-900);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .note-label-badge {
   display: inline-block;
-  padding: 0.25rem 0.75rem;
-  background: #00637C;
+  padding: 0.3125rem 0.875rem;
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
   color: white;
   font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 12px;
+  font-weight: 700;
+  border-radius: var(--radius-full);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
+  box-shadow: var(--shadow-sm);
 }
 
 .meeting-note-date {

@@ -14,26 +14,34 @@
 }
 
 .resource-form {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background: #f5f7fa;
-  border-radius: 6px;
+  margin-bottom: var(--spacing-xl);
+  padding: var(--spacing-xl);
+  background: linear-gradient(135deg, var(--gray-50) 0%, white 100%);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-sm);
 }
 
 .resource-input {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  margin-bottom: 0.75rem;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: 1.5px solid var(--gray-300);
+  border-radius: var(--radius-lg);
+  font-size: 0.9375rem;
+  margin-bottom: var(--spacing-md);
   box-sizing: border-box;
+  transition: all var(--transition-base);
+  background: white;
+}
+
+.resource-input:hover {
+  border-color: var(--gray-400);
 }
 
 .resource-input:focus {
   outline: none;
-  border-color: #00637C;
-  box-shadow: 0 0 0 3px rgba(0, 99, 124, 0.1);
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 4px rgba(0, 99, 124, 0.1);
 }
 
 .resource-file-input-wrapper {
@@ -100,15 +108,18 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem;
-  border-radius: 8px;
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-xl);
   background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--gray-200);
+  transition: all var(--transition-base);
 }
 
 .resource-item:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-2px);
+  border-color: var(--primary-200);
 }
 
 .resource-content {
@@ -123,12 +134,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: #f5f7fa;
-  color: #00637C;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
+  color: var(--primary-600);
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .resource-icon svg {

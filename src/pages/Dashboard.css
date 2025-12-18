@@ -1,100 +1,111 @@
 .reminders-alert {
-  background: #fff9e6;
-  border-left: 4px solid #ffc107;
-  border-radius: 8px;
-  padding: 1rem 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, var(--warning-light) 0%, #fef9e6 100%);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .reminders-alert.alert-overdue {
-  background: #fee;
-  border-left-color: #dc3545;
+  background: linear-gradient(135deg, var(--error-light) 0%, #fef2f2 100%);
+  border-left-color: var(--error);
+  border-color: rgba(239, 68, 68, 0.2);
 }
 
 .reminders-alert.alert-due-today {
-  background: #fff9e6;
-  border-left-color: #ffc107;
+  background: linear-gradient(135deg, var(--warning-light) 0%, #fef9e6 100%);
+  border-left-color: var(--warning);
 }
 
 .reminders-alert-content {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--spacing-lg);
 }
 
 .reminders-alert-icon {
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .reminders-alert-text {
   flex: 1;
-  color: #333;
+  color: var(--gray-900);
 }
 
 .reminders-alert-text strong {
-  font-size: 1rem;
-  color: #333;
+  font-size: 1.0625rem;
+  color: var(--gray-900);
+  font-weight: 700;
 }
 
 .reminders-alert-details {
-  color: #666;
-  font-size: 0.9rem;
+  color: var(--gray-600);
+  font-size: 0.9375rem;
+  font-weight: 500;
 }
 
 .reminders-alert-projects {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .reminder-project-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg);
   background: white;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  color: #00637C;
+  border: 1.5px solid var(--gray-300);
+  border-radius: var(--radius-lg);
+  color: var(--primary-600);
   text-decoration: none;
   font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-xs);
 }
 
 .reminder-project-link:hover {
-  background: #f0f0f0;
-  border-color: #00637C;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--primary-50);
+  border-color: var(--primary-400);
+  color: var(--primary-700);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .reminder-count {
-  color: #666;
-  font-weight: normal;
+  color: var(--gray-500);
+  font-weight: 500;
 }
 
 .overdue-badge {
-  background: #dc3545;
+  background: linear-gradient(135deg, var(--error) 0%, #dc2626 100%);
   color: white;
-  padding: 0.125rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 0.1875rem 0.625rem;
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: var(--shadow-sm);
 }
 
 .alert-overdue .reminder-project-link {
-  border-color: #dc3545;
+  border-color: var(--error);
 }
 
 .alert-overdue .reminder-project-link:hover {
-  border-color: #c82333;
-  background: #fff5f5;
+  border-color: #dc2626;
+  background: var(--error-light);
 }
 
 @media (max-width: 768px) {

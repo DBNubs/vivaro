@@ -18,26 +18,34 @@
 }
 
 .milestone-form {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background: #f5f7fa;
-  border-radius: 6px;
+  margin-bottom: var(--spacing-xl);
+  padding: var(--spacing-xl);
+  background: linear-gradient(135deg, var(--gray-50) 0%, white 100%);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-sm);
 }
 
 .milestone-input {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  margin-bottom: 0.75rem;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: 1.5px solid var(--gray-300);
+  border-radius: var(--radius-lg);
+  font-size: 0.9375rem;
+  margin-bottom: var(--spacing-md);
   box-sizing: border-box;
+  transition: all var(--transition-base);
+  background: white;
+}
+
+.milestone-input:hover {
+  border-color: var(--gray-400);
 }
 
 .milestone-input:focus {
   outline: none;
-  border-color: #00637C;
-  box-shadow: 0 0 0 3px rgba(0, 99, 124, 0.1);
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 4px rgba(0, 99, 124, 0.1);
 }
 
 .milestone-form-fields {
@@ -97,36 +105,43 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem;
-  border-radius: 8px;
-  background: #f9f9f9;
-  border: 2px solid transparent;
-  transition: all 0.2s;
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-xl);
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-left: 4px solid var(--gray-300);
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
 }
 
 .milestone-item:hover {
-  background: #f0f0f0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--gray-50);
+  box-shadow: var(--shadow-md);
+  transform: translateX(4px);
 }
 
 .milestone-item.milestone-today {
-  background: linear-gradient(135deg, #fff9e6 0%, #ffe6cc 100%);
-  border-color: #ffc107;
-  box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+  background: linear-gradient(135deg, var(--warning-light) 0%, #fef9e6 100%);
+  border-color: var(--warning);
+  border-left-color: var(--warning);
+  box-shadow: var(--shadow-lg);
 }
 
 .milestone-item.milestone-upcoming {
-  border-left: 4px solid #00637C;
+  border-left-color: var(--primary-500);
 }
 
 .milestone-item.milestone-past {
-  opacity: 0.7;
+  opacity: 0.65;
+  background: var(--gray-100);
 }
 
 .milestone-item.milestone-celebrated {
-  background: linear-gradient(135deg, #e6f7f0 0%, #d4edda 100%);
-  border-color: #28a745;
+  background: linear-gradient(135deg, var(--success-light) 0%, #d1fae5 100%);
+  border-color: var(--success);
+  border-left-color: var(--success);
   opacity: 1;
+  box-shadow: var(--shadow-md);
 }
 
 .milestone-content {

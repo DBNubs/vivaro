@@ -83,7 +83,7 @@ function createWindow() {
   console.log('Window created, ID:', mainWindow.id);
 
   // Show loading screen immediately
-  mainWindow.loadURL('data:text/html,<html><body style="font-family: system-ui; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f5f5f5;"><div style="text-align: center;"><h1>PM Dashboard</h1><p>Starting server...</p></div></body></html>');
+  mainWindow.loadURL('data:text/html,<html><body style="font-family: system-ui; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f5f5f5;"><div style="text-align: center;"><h1>Vivaro</h1><p>Starting server...</p></div></body></html>');
 
   // Start the Express server as a child process
   const isDev = process.env.NODE_ENV === 'development' || process.env.ELECTRON_IS_DEV === '1';

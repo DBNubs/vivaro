@@ -7,7 +7,7 @@
   "homepage": "./",
   "build": {
     "appId": "com.lullabot.pm-dashboard",
-    "productName": "PM Dashboard",
+    "productName": "Vivaro",
     "asar": false,
     "extraMetadata": {
       "main": "electron/main.js"
