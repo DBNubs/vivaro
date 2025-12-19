@@ -1,8 +1,101 @@
-const express = require('express');
-const fs = require('fs').promises;
+// Immediate output to verify script is running
+// Also write to a log file as backup
+const fsSync = require('fs');
 const path = require('path');
-const cors = require('cors');
-const multer = require('multer');
+const os = require('os');
+
+// Determine log directory - try multiple locations
+let logDir = null;
+let logFile = null;
+
+// Try DATA_DIR first (set by Electron in production)
+if (process.env.DATA_DIR) {
+  logDir = process.env.DATA_DIR;
+} else {
+  // Fallback to __dirname/data (development)
+  logDir = path.join(__dirname, 'data');
+}
+
+// If that doesn't work, try OS temp directory
+try {
+  if (!fsSync.existsSync(logDir)) {
+    try {
+      fsSync.mkdirSync(logDir, { recursive: true });
+    } catch (mkdirError) {
+      // If we can't create the directory, use temp directory
+      logDir = os.tmpdir();
+    }
+  }
+  logFile = path.join(logDir, 'server-startup.log');
+} catch (error) {
+  // Final fallback to temp directory
+  logDir = os.tmpdir();
+  logFile = path.join(logDir, 'server-startup.log');
+}
+
+try {
+  const startupInfo = `=== SERVER.JS STARTING ===
+Timestamp: ${new Date().toISOString()}
+__dirname: ${__dirname}
+process.cwd(): ${process.cwd()}
+process.argv: ${JSON.stringify(process.argv)}
+NODE_ENV: ${process.env.NODE_ENV}
+ELECTRON: ${process.env.ELECTRON}
+NODE_PATH: ${process.env.NODE_PATH}
+DATA_DIR: ${process.env.DATA_DIR || '(not set)'}
+PID: ${process.pid}
+Log file: ${logFile}
+\n`;
+
+  fsSync.appendFileSync(logFile, startupInfo);
+  console.log(`Log file written to: ${logFile}`);
+} catch (logError) {
+  // If we can't write to log file, that's okay, continue
+  console.error('Could not write to log file:', logError.message);
+}
+
+// Use both console.log and process.stdout.write to ensure output is captured
+process.stdout.write('=== SERVER.JS STARTING ===\n');
+process.stderr.write('=== SERVER.JS STARTING (stderr) ===\n');
+console.log('=== SERVER.JS STARTING ===');
+console.log('__dirname:', __dirname);
+console.log('process.cwd():', process.cwd());
+console.log('process.argv:', process.argv);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('ELECTRON:', process.env.ELECTRON);
+console.log('NODE_PATH:', process.env.NODE_PATH);
+// Force flush
+if (process.stdout.isTTY) process.stdout.write('');
+if (process.stderr.isTTY) process.stderr.write('');
+
+// Note: fsSync and path are already required above for logging
+// Wrap requires in try-catch to catch module loading errors
+let express, fs, cors, multer;
+
+try {
+  console.log('Loading dependencies...');
+  express = require('express');
+  fs = require('fs').promises;
+  // fsSync and path already required above
+  cors = require('cors');
+  multer = require('multer');
+  console.log('Dependencies loaded successfully');
+
+  // Log success to file
+  try {
+    fsSync.appendFileSync(logFile, 'Dependencies loaded successfully\n');
+  } catch (e) {}
+} catch (error) {
+  const errorMsg = `ERROR LOADING DEPENDENCIES: ${error.message}\nStack: ${error.stack}\n__dirname: ${__dirname}\nprocess.cwd(): ${process.cwd()}\n`;
+  console.error(errorMsg);
+
+  // Write error to log file
+  try {
+    fsSync.appendFileSync(logFile, errorMsg);
+  } catch (e) {}
+
+  process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,14 +115,18 @@ app.use('/api/files', express.static(path.join(__dirname, 'data')));
 // Only serve static files if we're in Electron or production mode
 if (process.env.ELECTRON || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
   const buildPath = path.join(__dirname, 'build');
-  app.use(express.static(buildPath));
-  app.get('*', (req, res) => {
-    // Don't serve HTML for API routes
-    if (req.path.startsWith('/api/')) {
-      return res.status(404).json({ error: 'Not found' });
+  // Check if build directory exists
+  try {
+    if (fsSync.existsSync(buildPath)) {
+      app.use(express.static(buildPath));
+      console.log(`Serving static files from: ${buildPath}`);
+    } else {
+      console.warn(`Warning: Build directory not found at ${buildPath}. Static files will not be served.`);
     }
-    res.sendFile(path.join(buildPath, 'index.html'));
-  });
+  } catch (error) {
+    console.error(`Error checking build directory: ${error.message}`);
+  }
+  // Note: Catch-all route for serving index.html is defined after all API routes
 }
 
 // Ensure data directory exists
@@ -1186,6 +1283,36 @@ app.delete('/api/clients/:id/contacts/:contactId', async (req, res) => {
   }
 });
 
+// Serve React app catch-all route (must be after all API routes)
+// Only serve static files if we're in Electron or production mode
+if (process.env.ELECTRON || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
+  const buildPath = path.join(__dirname, 'build');
+  const indexHtmlPath = path.join(buildPath, 'index.html');
+  app.get('*', (req, res) => {
+    // Don't serve HTML for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    // Check if index.html exists before trying to serve it
+    if (fsSync.existsSync(indexHtmlPath)) {
+      res.sendFile(indexHtmlPath);
+    } else {
+      console.error(`index.html not found at ${indexHtmlPath}`);
+      res.status(500).send(`
+        <html>
+          <body style="font-family: system-ui; padding: 40px; background: #f5f5f5;">
+            <h1 style="color: #d32f2f;">Build Not Found</h1>
+            <p>The application build files were not found.</p>
+            <p><strong>Expected path:</strong> ${indexHtmlPath}</p>
+            <p><strong>Build directory:</strong> ${buildPath}</p>
+            <p><strong>__dirname:</strong> ${__dirname}</p>
+          </body>
+        </html>
+      `);
+    }
+  });
+}
+
 // Initialize multer after helper functions are defined
 function initializeMulter() {
   upload = multer({
@@ -1219,33 +1346,65 @@ function initializeMulter() {
 
 // Initialize server
 async function startServer() {
-  await ensureDataDirectory();
-  await migrateOldData();
-  const server = app.listen(PORT, 'localhost', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Data directory: ${DATA_DIR}`);
-  });
+  try {
+    console.log('Starting server...');
+    console.log(`__dirname: ${__dirname}`);
+    console.log(`PORT: ${PORT}`);
+    console.log(`DATA_DIR: ${DATA_DIR}`);
+    console.log(`ELECTRON: ${process.env.ELECTRON}`);
+    console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
 
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`\n❌ Error: Port ${PORT} is already in use.`);
-      console.error(`\nTo fix this, you can:`);
-      console.error(`  1. Kill the process using port ${PORT}:`);
-      console.error(`     lsof -ti:${PORT} | xargs kill -9`);
-      console.error(`  2. Or use a different port:`);
-      console.error(`     PORT=3002 npm run server\n`);
-      process.exit(1);
-    } else {
-      console.error('Server error:', err);
-      process.exit(1);
-    }
-  });
+    await ensureDataDirectory();
+    await migrateOldData();
+
+    const server = app.listen(PORT, 'localhost', () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Data directory: ${DATA_DIR}`);
+    });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`\n❌ Error: Port ${PORT} is already in use.`);
+        console.error(`\nTo fix this, you can:`);
+        console.error(`  1. Kill the process using port ${PORT}:`);
+        console.error(`     lsof -ti:${PORT} | xargs kill -9`);
+        console.error(`  2. Or use a different port:`);
+        console.error(`     PORT=3002 npm run server\n`);
+        process.exit(1);
+      } else {
+        console.error('Server error:', err);
+        process.exit(1);
+      }
+    });
+  } catch (error) {
+    console.error('Error starting server:', error);
+    console.error('Stack:', error.stack);
+    process.exit(1);
+  }
 }
 
 // Auto-start the server
 // If ELECTRON is set, we're being forked by Electron, so start the server
 // If ELECTRON is not set, we're running standalone, so also start the server
-startServer().catch(console.error);
+startServer().catch((error) => {
+  console.error('Fatal error starting server:', error);
+  console.error('Stack:', error.stack);
+  // Ensure we exit with error code so Electron can detect the failure
+  process.exit(1);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
 
 // Export for Electron to use
 module.exports = { app, startServer };

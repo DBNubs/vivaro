@@ -1,0 +1,39 @@
+=== SERVER.JS STARTING ===
+Timestamp: 2025-12-18T21:33:51.095Z
+__dirname: /Users/dbnubs/Documents/projects/lullabot/pm-dashboard
+process.cwd(): /Users/dbnubs/Documents/projects/lullabot/pm-dashboard
+process.argv: ["/Users/dbnubs/.nvm/versions/node/v20.16.0/bin/node","/Users/dbnubs/Documents/projects/lullabot/pm-dashboard/server.js"]
+NODE_ENV: undefined
+ELECTRON: undefined
+NODE_PATH: undefined
+DATA_DIR: (not set)
+PID: 36821
+Log file: /Users/dbnubs/Documents/projects/lullabot/pm-dashboard/data/server-startup.log
+
+Dependencies loaded successfully
+=== SERVER.JS STARTING ===
+Timestamp: 2025-12-19T18:27:51.913Z
+__dirname: /Users/dbnubs/Documents/projects/lullabot/pm-dashboard
+process.cwd(): /Users/dbnubs/Documents/projects/lullabot/pm-dashboard
+process.argv: ["/Users/dbnubs/.nvm/versions/node/v20.16.0/bin/node","/Users/dbnubs/Documents/projects/lullabot/pm-dashboard/server.js"]
+NODE_ENV: undefined
+ELECTRON: undefined
+NODE_PATH: undefined
+DATA_DIR: (not set)
+PID: 83342
+Log file: /Users/dbnubs/Documents/projects/lullabot/pm-dashboard/data/server-startup.log
+
+Dependencies loaded successfully
+=== SERVER.JS STARTING ===
+Timestamp: 2025-12-19T18:30:21.376Z
+__dirname: /Users/dbnubs/Documents/projects/lullabot/pm-dashboard
+process.cwd(): /Users/dbnubs/Documents/projects/lullabot/pm-dashboard
+process.argv: ["/Users/dbnubs/.nvm/versions/node/v20.16.0/bin/node","/Users/dbnubs/Documents/projects/lullabot/pm-dashboard/server.js"]
+NODE_ENV: undefined
+ELECTRON: undefined
+NODE_PATH: undefined
+DATA_DIR: (not set)
+PID: 83515
+Log file: /Users/dbnubs/Documents/projects/lullabot/pm-dashboard/data/server-startup.log
+
+Dependencies loaded successfully

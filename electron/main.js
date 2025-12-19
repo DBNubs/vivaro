@@ -1,6 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, fork, execFile } = require('child_process');
 const fs = require('fs');
 
 // Declare variables first
@@ -9,6 +9,9 @@ let serverProcess;
 let serverCheckInterval = null;
 let isCreatingWindow = false;
 let windowCreated = false;
+
+// Track if app is quitting (for macOS window close behavior)
+app.isQuitting = false;
 
 // Prevent multiple instances
 const gotTheLock = app.requestSingleInstanceLock();
@@ -104,35 +107,139 @@ function createWindow() {
 
     // Ensure data directory exists in a writable location
     const userDataPath = app.getPath('userData');
+    console.log(`userData path: ${userDataPath}`);
     const dataPath = path.join(userDataPath, 'data');
+    console.log(`dataPath: ${dataPath}`);
     if (!fs.existsSync(dataPath)) {
-      fs.mkdirSync(dataPath, { recursive: true });
+      try {
+        fs.mkdirSync(dataPath, { recursive: true });
+        console.log(`Created data directory: ${dataPath}`);
+      } catch (mkdirError) {
+        console.error(`Failed to create data directory: ${mkdirError.message}`);
+        // Fallback to a writable location
+        const os = require('os');
+        const fallbackPath = path.join(os.tmpdir(), 'vivaro-data');
+        console.log(`Using fallback data path: ${fallbackPath}`);
+        if (!fs.existsSync(fallbackPath)) {
+          fs.mkdirSync(fallbackPath, { recursive: true });
+        }
+      }
     }
   }
+
+  // Declare server output variables outside the if/else block so they're accessible in the timeout handler
+  let serverOutput = '';
+  let serverErrors = '';
 
   // Only start server if it's not already running
   if (serverProcess && !serverProcess.killed) {
     console.log('Server already running, reusing existing process');
     // Still need to check if server is ready and load the URL
   } else {
-    // Use spawn with Electron's Node.js executable to ensure proper module resolution
-    const nodeExecutable = process.execPath; // This is Electron's Node.js
-    serverProcess = spawn(nodeExecutable, [serverPath], {
-      env: {
+    // Verify server file exists before spawning
+    if (!fs.existsSync(serverPath)) {
+      const errorMsg = `Server file not found at: ${serverPath}`;
+      console.error(errorMsg);
+      const errorHtml = `<html><body style="font-family: system-ui; padding: 40px; background: #f5f5f5;"><h1 style="color: #d32f2f;">Server File Not Found</h1><p>${errorMsg}</p><p><strong>Working directory:</strong> ${serverCwd}</p><p><strong>__dirname:</strong> ${__dirname}</p></body></html>`;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.loadURL('data:text/html,' + encodeURIComponent(errorHtml));
+      }
+      return;
+    }
+
+    console.log(`Spawning server process...`);
+    console.log(`  Executable: ${process.execPath}`);
+    console.log(`  Server path: ${serverPath}`);
+    console.log(`  Working directory: ${serverCwd}`);
+    console.log(`  Server file exists: ${fs.existsSync(serverPath)}`);
+
+    // Check if node_modules exists
+    const nodeModulesPath = path.join(serverCwd, 'node_modules');
+    const nodeModulesExists = fs.existsSync(nodeModulesPath);
+    console.log(`  node_modules exists: ${nodeModulesExists} at ${nodeModulesPath}`);
+
+    if (!nodeModulesExists) {
+      const errorMsg = `node_modules directory not found at ${nodeModulesPath}`;
+      console.error(errorMsg);
+      serverErrors += errorMsg + '\n';
+    }
+
+    // Try using fork first (better for Node.js scripts)
+    // Fork uses the same Node.js runtime and handles module resolution better
+    try {
+      console.log('Attempting to fork server process...');
+      // Get the actual userData path and ensure it's writable
+      let dataDirPath;
+      if (isDev) {
+        dataDirPath = undefined; // Use default in development
+      } else {
+        const userDataPath = app.getPath('userData');
+        dataDirPath = path.join(userDataPath, 'data');
+        // Verify the path exists and is writable
+        if (!fs.existsSync(dataDirPath)) {
+          try {
+            fs.mkdirSync(dataDirPath, { recursive: true });
+          } catch (error) {
+            // If we can't create in userData, use a fallback
+            const os = require('os');
+            dataDirPath = path.join(os.tmpdir(), 'vivaro-data');
+            if (!fs.existsSync(dataDirPath)) {
+              fs.mkdirSync(dataDirPath, { recursive: true });
+            }
+          }
+        }
+      }
+
+      const env = {
         ...process.env,
         PORT: '3001',
         ELECTRON: '1',
         // Set data directory to user's app data folder in production
-        DATA_DIR: isDev ? undefined : path.join(app.getPath('userData'), 'data'),
+        DATA_DIR: dataDirPath,
         // Ensure NODE_PATH includes the app directory for module resolution
         NODE_PATH: serverCwd
-      },
-      cwd: serverCwd,
-      stdio: ['ignore', 'pipe', 'pipe'], // Capture stdout and stderr
-    });
+      };
+
+      console.log(`Setting DATA_DIR to: ${dataDirPath}`);
+
+      // Use fork for Node.js scripts - it's better than spawn for this use case
+      // Fork automatically uses the same Node.js runtime and handles module resolution
+      serverProcess = fork(serverPath, [], {
+        env: env,
+        cwd: serverCwd,
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc'], // Add ipc for inter-process communication
+        silent: false, // Don't silence output
+      });
+
+      console.log(`Forked server process with PID: ${serverProcess.pid}`);
+      console.log(`Server path: ${serverPath}`);
+      console.log(`Working directory: ${serverCwd}`);
+    } catch (spawnError) {
+      console.error('Error spawning server:', spawnError);
+      serverErrors += `Spawn error: ${spawnError.message}\n`;
+      const errorHtml = `<html><body style="font-family: system-ui; padding: 40px; background: #f5f5f5;"><h1 style="color: #d32f2f;">Spawn Error</h1><p>${spawnError.message}</p><pre>${spawnError.stack}</pre></body></html>`;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.loadURL('data:text/html,' + encodeURIComponent(errorHtml));
+      }
+      return;
+    }
+
+    console.log(`Server process spawned with PID: ${serverProcess.pid}`);
+    console.log(`Process killed status: ${serverProcess.killed}`);
+    console.log(`Process signal code: ${serverProcess.signalCode}`);
+    console.log(`Process exit code: ${serverProcess.exitCode}`);
+
+    // Check if process exited immediately
+    setTimeout(() => {
+      if (serverProcess.killed || serverProcess.exitCode !== null) {
+        console.error(`Server process exited immediately! Exit code: ${serverProcess.exitCode}, Killed: ${serverProcess.killed}`);
+        serverErrors += `Server process exited immediately. Exit code: ${serverProcess.exitCode}, Killed: ${serverProcess.killed}\n`;
+      }
+    }, 100);
 
       serverProcess.on('error', (error) => {
         console.error('Server process error:', error);
+        serverErrors += `Process error: ${error.message}\n${error.stack || ''}\n`;
         // Show error in window
         const errorHtml = `<html><body style="font-family: system-ui; padding: 40px; background: #f5f5f5;"><h1 style="color: #d32f2f;">Server Error</h1><p>Failed to start server: ${error.message}</p><pre style="background: #fff; padding: 20px; border-radius: 4px; overflow: auto;">${error.stack || error.toString()}</pre></body></html>`;
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -140,31 +247,47 @@ function createWindow() {
         }
       });
 
-      let serverOutput = '';
-      let serverErrors = '';
-
       serverProcess.on('exit', (code, signal) => {
+        console.log(`Server process exited with code ${code} and signal ${signal}`);
         if (code !== 0 && code !== null) {
           console.error(`Server process exited with code ${code} and signal ${signal}`);
-          const errorHtml = `<html><body style="font-family: system-ui; padding: 40px; background: #f5f5f5;"><h1 style="color: #d32f2f;">Server Failed to Start</h1><p>Exit code: ${code}, Signal: ${signal}</p><h2>Server Output:</h2><pre style="background: #fff; padding: 20px; border-radius: 4px; overflow: auto; white-space: pre-wrap;">${serverOutput || '(no output)'}</pre><h2>Server Errors:</h2><pre style="background: #fff; padding: 20px; border-radius: 4px; overflow: auto; white-space: pre-wrap; color: #d32f2f;">${serverErrors || '(no errors)'}</pre><p><strong>Server path:</strong> ${serverPath}</p><p><strong>Working directory:</strong> ${serverCwd}</p></body></html>`;
+          const errorHtml = `<html><body style="font-family: system-ui; padding: 40px; background: #f5f5f5;"><h1 style="color: #d32f2f;">Server Failed to Start</h1><p>Exit code: ${code}, Signal: ${signal}</p><h2>Server Output:</h2><pre style="background: #fff; padding: 20px; border-radius: 4px; overflow: auto; white-space: pre-wrap;">${serverOutput || '(no output)'}</pre><h2>Server Errors:</h2><pre style="background: #fff; padding: 20px; border-radius: 4px; overflow: auto; white-space: pre-wrap; color: #d32f2f;">${serverErrors || '(no errors)'}</pre><p><strong>Server path:</strong> ${serverPath}</p><p><strong>Working directory:</strong> ${serverCwd}</p><p><strong>PID:</strong> ${serverProcess.pid || 'N/A'}</p></body></html>`;
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.loadURL('data:text/html,' + encodeURIComponent(errorHtml));
           }
         }
       });
 
-      // Log server output for debugging
-      serverProcess.stdout?.on('data', (data) => {
-        const output = data.toString();
-        serverOutput += output;
-        console.log(`Server stdout: ${output}`);
+      serverProcess.on('spawn', () => {
+        console.log('Server process spawned successfully');
       });
 
-      serverProcess.stderr?.on('data', (data) => {
-        const error = data.toString();
-        serverErrors += error;
-        console.error(`Server stderr: ${error}`);
-      });
+      // Log server output for debugging
+      if (serverProcess.stdout) {
+        serverProcess.stdout.on('data', (data) => {
+          const output = data.toString();
+          serverOutput += output;
+          console.log(`Server stdout: ${output}`);
+        });
+        serverProcess.stdout.on('error', (err) => {
+          console.error('Server stdout error:', err);
+        });
+      } else {
+        console.warn('Server stdout is not available');
+      }
+
+      if (serverProcess.stderr) {
+        serverProcess.stderr.on('data', (data) => {
+          const error = data.toString();
+          serverErrors += error;
+          console.error(`Server stderr: ${error}`);
+        });
+        serverProcess.stderr.on('error', (err) => {
+          console.error('Server stderr error:', err);
+        });
+      } else {
+        console.warn('Server stderr is not available');
+      }
     }
 
   // Wait for server to be ready, then load the app
@@ -179,17 +302,45 @@ function createWindow() {
 
   serverCheckInterval = setInterval(() => {
     attempts++;
-    if (attempts > maxAttempts) {
-      clearInterval(serverCheckInterval);
-      serverCheckInterval = null;
-      console.error('Server failed to start after', maxAttempts * 500, 'ms');
-      // Show error message
-      const errorHtml = `<html><body style="font-family: system-ui; padding: 40px; background: #f5f5f5;"><h1 style="color: #d32f2f;">Server Timeout</h1><p>The server failed to start after ${maxAttempts * 500}ms. Please check the console for errors.</p><p>Server path: ${serverPath}</p><p>Working directory: ${serverCwd}</p></body></html>`;
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.loadURL('data:text/html,' + encodeURIComponent(errorHtml));
+      if (attempts > maxAttempts) {
+        clearInterval(serverCheckInterval);
+        serverCheckInterval = null;
+        console.error('Server failed to start after', maxAttempts * 500, 'ms');
+
+        // Try to read the log file if it exists - check multiple locations
+        let logFileContent = '';
+        let foundLogFile = null;
+        const possibleLogLocations = [
+          path.join(app.getPath('userData'), 'data', 'server-startup.log'), // Production DATA_DIR
+          path.join(serverCwd, 'data', 'server-startup.log'), // Development or fallback
+          path.join(require('os').tmpdir(), 'server-startup.log'), // OS temp directory
+        ];
+
+        for (const logFile of possibleLogLocations) {
+          try {
+            if (fs.existsSync(logFile)) {
+              logFileContent = fs.readFileSync(logFile, 'utf8');
+              foundLogFile = logFile;
+              console.log(`Found log file at: ${logFile}`);
+              break;
+            }
+          } catch (e) {
+            // Continue to next location
+          }
+        }
+
+        if (!logFileContent) {
+          logFileContent = 'Log file not found in any of these locations:\n' + possibleLogLocations.join('\n');
+        }
+
+        // Show error message with server output
+        const logFileInfo = foundLogFile || possibleLogLocations.join(', ');
+        const errorHtml = `<html><body style="font-family: system-ui; padding: 40px; background: #f5f5f5;"><h1 style="color: #d32f2f;">Server Timeout</h1><p>The server failed to start after ${maxAttempts * 500}ms. Please check the console for errors.</p><p><strong>Server path:</strong> ${serverPath}</p><p><strong>Working directory:</strong> ${serverCwd}</p><p><strong>Log file locations checked:</strong> ${logFileInfo}</p><h2>Server Output:</h2><pre style="background: #fff; padding: 20px; border-radius: 4px; overflow: auto; white-space: pre-wrap; max-height: 200px;">${serverOutput || '(no output)'}</pre><h2>Server Errors:</h2><pre style="background: #fff; padding: 20px; border-radius: 4px; overflow: auto; white-space: pre-wrap; color: #d32f2f; max-height: 200px;">${serverErrors || '(no errors)'}</pre>${logFileContent ? `<h2>Log File Content:</h2><pre style="background: #fff; padding: 20px; border-radius: 4px; overflow: auto; white-space: pre-wrap; max-height: 300px;">${logFileContent}</pre>` : ''}</body></html>`;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.loadURL('data:text/html,' + encodeURIComponent(errorHtml));
+        }
+        return;
       }
-      return;
-    }
 
     const http = require('http');
     const req = http.get('http://localhost:3001/api/clients', (res) => {
@@ -230,9 +381,13 @@ function createWindow() {
   // Prevent window from being closed accidentally
   mainWindow.on('close', (event) => {
     // On macOS, don't quit when window is closed, just hide it
-    if (process.platform === 'darwin') {
+    // But allow quit if the app is already quitting
+    if (process.platform === 'darwin' && !app.isQuitting) {
       event.preventDefault();
       mainWindow.hide();
+    } else {
+      // Clean up when window is actually closing
+      cleanupServer();
     }
   });
 
@@ -281,27 +436,80 @@ app.on('activate', (event) => {
 
 // Remove duplicate ready handler - we're already using whenReady()
 
-app.on('window-all-closed', () => {
+// Helper function to clean up server process
+function cleanupServer() {
   // Clear server check interval
   if (serverCheckInterval) {
     clearInterval(serverCheckInterval);
     serverCheckInterval = null;
   }
+
+  // Kill server process more forcefully
   if (serverProcess && !serverProcess.killed) {
-    serverProcess.kill();
+    try {
+      // Try graceful shutdown first
+      serverProcess.kill('SIGTERM');
+
+      // Force kill after a short delay if still running
+      const forceKillTimeout = setTimeout(() => {
+        if (serverProcess && !serverProcess.killed) {
+          try {
+            console.log('Force killing server process...');
+            serverProcess.kill('SIGKILL');
+          } catch (err) {
+            console.error('Error force killing server:', err);
+          }
+        }
+      }, 500);
+
+      // Clear timeout if process exits before it fires
+      if (serverProcess.listenerCount('exit') === 0) {
+        serverProcess.once('exit', () => {
+          clearTimeout(forceKillTimeout);
+        });
+      }
+    } catch (err) {
+      console.error('Error killing server process:', err);
+      // Try force kill as fallback
+      try {
+        if (serverProcess && !serverProcess.killed) {
+          serverProcess.kill('SIGKILL');
+        }
+      } catch (killErr) {
+        console.error('Error force killing server:', killErr);
+      }
+    }
   }
+}
+
+app.on('window-all-closed', () => {
+  cleanupServer();
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-app.on('before-quit', () => {
-  // Clear server check interval
-  if (serverCheckInterval) {
-    clearInterval(serverCheckInterval);
-    serverCheckInterval = null;
-  }
-  if (serverProcess && !serverProcess.killed) {
-    serverProcess.kill();
-  }
+app.on('before-quit', (event) => {
+  app.isQuitting = true;
+  cleanupServer();
+});
+
+app.on('will-quit', (event) => {
+  cleanupServer();
+});
+
+// Handle process termination signals
+process.on('SIGTERM', () => {
+  cleanupServer();
+  app.quit();
+});
+
+process.on('SIGINT', () => {
+  cleanupServer();
+  app.quit();
+});
+
+// Ensure cleanup on exit
+process.on('exit', () => {
+  cleanupServer();
 });
