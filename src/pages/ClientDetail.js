@@ -39,6 +39,8 @@ function ClientDetail() {
   const [editingContact, setEditingContact] = useState(null);
   const [showPastSows, setShowPastSows] = useState(false);
   const [activeTab, setActiveTab] = useState('reminders');
+  const [selectedNoteFolder, setSelectedNoteFolder] = useState('');
+  const [selectedResourceFolder, setSelectedResourceFolder] = useState('');
 
   useEffect(() => {
     loadClient();
@@ -184,9 +186,19 @@ function ClientDetail() {
     try {
       setError(null);
       if (editingNote) {
-        await updateMeetingNote(id, editingNote.id, noteData);
+        // Preserve existing folder and label when editing
+        await updateMeetingNote(id, editingNote.id, {
+          ...noteData,
+          folder: editingNote.folder || '',
+          label: editingNote.label || '',
+        });
       } else {
-        await createMeetingNote(id, noteData);
+        // New notes start in the currently selected folder with no label
+        await createMeetingNote(id, {
+          ...noteData,
+          folder: selectedNoteFolder || '',
+          label: '',
+        });
       }
       await loadMeetingNotes();
       setShowNoteForm(false);
@@ -204,6 +216,100 @@ function ClientDetail() {
       await loadMeetingNotes();
     } catch (err) {
       setError('Failed to delete meeting notes. Please try again.');
+      console.error(err);
+    }
+  };
+
+  const handleMoveNote = async (noteId, folderPath) => {
+    try {
+      setError(null);
+      const note = meetingNotes.find(n => n.id === noteId);
+      if (note) {
+        await updateMeetingNote(id, noteId, {
+          ...note,
+          folder: folderPath,
+        });
+        await loadMeetingNotes();
+      }
+    } catch (err) {
+      setError('Failed to move note. Please try again.');
+      console.error(err);
+    }
+  };
+
+  const handleCreateNoteFolder = async (folderPath) => {
+    try {
+      setError(null);
+
+      // Create placeholder notes for all parent folders in the path
+      const parts = folderPath.split('/').filter(Boolean);
+
+      // Get all existing folders (both from .folder notes and from actual notes)
+      const existingFolders = new Set();
+      meetingNotes.forEach(note => {
+        if (note.folder) {
+          existingFolders.add(note.folder);
+          // Also add all parent paths
+          const noteParts = note.folder.split('/').filter(Boolean);
+          for (let i = 1; i <= noteParts.length; i++) {
+            existingFolders.add(noteParts.slice(0, i).join('/'));
+          }
+        }
+      });
+
+      // Create placeholders for each level of the path
+      const createdFolders = [];
+      for (let i = 0; i < parts.length; i++) {
+        const currentPath = parts.slice(0, i + 1).join('/');
+
+        // Only create if this folder doesn't already exist
+        if (!existingFolders.has(currentPath)) {
+          const folderNote = {
+            title: `.folder`,
+            date: new Date().toISOString(),
+            content: '<p>Folder placeholder</p>', // Add content to avoid validation issues
+            label: '',
+            folder: currentPath,
+          };
+          try {
+            const created = await createMeetingNote(id, folderNote);
+            createdFolders.push(currentPath);
+            console.log(`Created folder placeholder for: ${currentPath}`, created);
+          } catch (err) {
+            console.error(`Failed to create folder placeholder for ${currentPath}:`, err);
+            // Continue creating other folders even if one fails
+          }
+        }
+      }
+
+      if (createdFolders.length === 0 && parts.length > 0) {
+        console.warn(`No folders were created. Existing folders:`, Array.from(existingFolders));
+      }
+
+      await loadMeetingNotes();
+    } catch (err) {
+      setError('Failed to create folder. Please try again.');
+      console.error(err);
+    }
+  };
+
+  const handleDeleteNoteFolder = async (folderPath) => {
+    try {
+      setError(null);
+      // Find all notes in this folder and subfolders
+      const notesToDelete = meetingNotes.filter(note => {
+        const noteFolder = note.folder || '';
+        // Match exact folder or subfolders
+        return noteFolder === folderPath || noteFolder.startsWith(folderPath + '/');
+      });
+
+      // Delete all notes in the folder
+      for (const note of notesToDelete) {
+        await deleteMeetingNote(id, note.id);
+      }
+      await loadMeetingNotes();
+    } catch (err) {
+      setError('Failed to delete folder. Please try again.');
       console.error(err);
     }
   };
@@ -334,7 +440,11 @@ function ClientDetail() {
   const handleAddLink = async (linkData) => {
     try {
       setError(null);
-      await createLinkResource(id, linkData);
+      // New links go to the currently selected folder
+      await createLinkResource(id, {
+        ...linkData,
+        folder: selectedResourceFolder || '',
+      });
       await loadResources();
     } catch (err) {
       setError('Failed to add link. Please try again.');
@@ -342,15 +452,98 @@ function ClientDetail() {
     }
   };
 
-  const handleAddFile = async (file, title, description) => {
+  const handleAddFile = async (file, title, description, folder = '') => {
     try {
       setError(null);
-      await uploadFileResource(id, file, title, description);
+      // Use provided folder or default to currently selected folder
+      const targetFolder = folder || selectedResourceFolder || '';
+      await uploadFileResource(id, file, title, description, targetFolder);
       await loadResources();
     } catch (err) {
       setError('Failed to upload file. Please try again.');
       console.error(err);
       throw err;
+    }
+  };
+
+  const handleCreateResourceFolder = async (folderPath) => {
+    try {
+      setError(null);
+
+      // Create placeholder resources for all parent folders in the path
+      const parts = folderPath.split('/').filter(Boolean);
+
+      // Get all existing folders (both from .folder resources and from actual resources)
+      const existingFolders = new Set();
+      resources.forEach(resource => {
+        if (resource.folder) {
+          existingFolders.add(resource.folder);
+          // Also add all parent paths
+          const resourceParts = resource.folder.split('/').filter(Boolean);
+          for (let i = 1; i <= resourceParts.length; i++) {
+            existingFolders.add(resourceParts.slice(0, i).join('/'));
+          }
+        }
+      });
+
+      // Create placeholders for each level of the path
+      for (let i = 0; i < parts.length; i++) {
+        const currentPath = parts.slice(0, i + 1).join('/');
+
+        // Only create if this folder doesn't already exist
+        if (!existingFolders.has(currentPath)) {
+          const folderResource = {
+            title: `.folder`,
+            url: '',
+            description: '',
+            folder: currentPath,
+          };
+          await createLinkResource(id, folderResource);
+        }
+      }
+
+      await loadResources();
+    } catch (err) {
+      setError('Failed to create folder. Please try again.');
+      console.error(err);
+    }
+  };
+
+  const handleDeleteResourceFolder = async (folderPath) => {
+    try {
+      setError(null);
+      // Find all resources in this folder and subfolders
+      const resourcesToDelete = resources.filter(resource => {
+        const resourceFolder = resource.folder || '';
+        // Match exact folder or subfolders
+        return resourceFolder === folderPath || resourceFolder.startsWith(folderPath + '/');
+      });
+
+      // Delete all resources in the folder
+      for (const resource of resourcesToDelete) {
+        await deleteResource(id, resource.id);
+      }
+      await loadResources();
+    } catch (err) {
+      setError('Failed to delete folder. Please try again.');
+      console.error(err);
+    }
+  };
+
+  const handleMoveResource = async (resourceId, folderPath) => {
+    try {
+      setError(null);
+      const resource = resources.find(r => r.id === resourceId);
+      if (resource) {
+        await updateResource(id, resourceId, {
+          ...resource,
+          folder: folderPath,
+        });
+        await loadResources();
+      }
+    } catch (err) {
+      setError('Failed to move resource. Please try again.');
+      console.error(err);
     }
   };
 
@@ -363,7 +556,11 @@ function ClientDetail() {
     try {
       setError(null);
       if (editingResource) {
-        await updateResource(id, editingResource.id, resourceData);
+        // Preserve existing folder when editing
+        await updateResource(id, editingResource.id, {
+          ...resourceData,
+          folder: editingResource.folder || '',
+        });
       }
       setShowResourceForm(false);
       setEditingResource(null);
@@ -808,12 +1005,7 @@ function ClientDetail() {
           {
             id: 'milestones',
             label: 'Milestones',
-            badge: milestones.filter(m => {
-              const milestoneDate = new Date(m.date);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              return milestoneDate >= today && !m.celebrated;
-            }).length,
+            badge: milestones.length,
           },
           {
             id: 'notes',
@@ -862,6 +1054,10 @@ function ClientDetail() {
               notes={meetingNotes}
               onEdit={handleEditNote}
               onDelete={handleDeleteNote}
+              onCreateFolder={handleCreateNoteFolder}
+              onDeleteFolder={handleDeleteNoteFolder}
+              onMoveNote={handleMoveNote}
+              onSelectedFolderChange={setSelectedNoteFolder}
             />
           </div>
         </div>
@@ -873,6 +1069,10 @@ function ClientDetail() {
               onAddFile={handleAddFile}
               onEdit={handleEditResource}
               onDelete={handleDeleteResource}
+              onCreateFolder={handleCreateResourceFolder}
+              onDeleteFolder={handleDeleteResourceFolder}
+              onMoveResource={handleMoveResource}
+              onSelectedFolderChange={setSelectedResourceFolder}
             />
           </div>
         </div>
@@ -883,6 +1083,7 @@ function ClientDetail() {
           resource={editingResource}
           onSave={handleSaveResource}
           onCancel={handleCancelResourceForm}
+          existingResources={resources}
         />
       )}
 
@@ -907,6 +1108,7 @@ function ClientDetail() {
           note={editingNote}
           onSave={handleSaveNote}
           onCancel={handleCancelNoteForm}
+          existingNotes={meetingNotes}
         />
       )}
 

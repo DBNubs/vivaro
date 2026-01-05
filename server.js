@@ -750,6 +750,8 @@ app.post('/api/clients/:id/meeting-notes', async (req, res) => {
       title: req.body.title || '',
       date: req.body.date || new Date().toISOString(),
       content: req.body.content || '',
+      label: req.body.label || '',
+      folder: req.body.folder || '',
       createdAt: new Date().toISOString(),
     };
 
@@ -1055,6 +1057,7 @@ app.post('/api/clients/:id/resources/link', async (req, res) => {
       title: req.body.title || '',
       url: req.body.url || '',
       description: req.body.description || '',
+      folder: req.body.folder || '',
       createdAt: new Date().toISOString(),
     };
 
@@ -1093,6 +1096,7 @@ app.post('/api/clients/:id/resources/file', upload.single('file'), async (req, r
       fileSize: req.file.size,
       url: fileUrl,
       description: req.body.description || '',
+      folder: req.body.folder || '',
       uploadedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
@@ -1129,6 +1133,7 @@ app.put('/api/clients/:id/resources/:resourceId', async (req, res) => {
       ...resources[resourceIndex],
       title: req.body.title || resources[resourceIndex].title,
       description: req.body.description || resources[resourceIndex].description,
+      folder: req.body.folder !== undefined ? req.body.folder : resources[resourceIndex].folder,
       // Only update URL for links
       ...(resources[resourceIndex].type === 'link' && req.body.url
         ? { url: req.body.url }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './ResourceForm.css';
 
-const ResourceForm = ({ resource, onSave, onCancel }) => {
+const ResourceForm = ({ resource, onSave, onCancel, existingResources = [] }) => {
   const [formData, setFormData] = useState({
     title: '',
     url: '',

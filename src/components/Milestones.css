@@ -131,10 +131,6 @@
   border-left-color: var(--primary-500);
 }
 
-.milestone-item.milestone-past {
-  opacity: 0.65;
-  background: var(--gray-100);
-}
 
 .milestone-item.milestone-celebrated {
   background: linear-gradient(135deg, var(--success-light) 0%, #d1fae5 100%);

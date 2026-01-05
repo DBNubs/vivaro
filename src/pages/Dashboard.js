@@ -65,7 +65,7 @@ function Dashboard() {
       setShowForm(false);
       setEditingClient(null);
     } catch (err) {
-      setError('Failed to save client. Please try again.');
+      setError(err.message || 'Failed to save client. Please try again.');
       console.error(err);
     }
   };

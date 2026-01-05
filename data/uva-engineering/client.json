@@ -12,15 +12,6 @@
       "primary": true
     }
   ],
-  "sows": [
-    {
-      "id": "1766006811967",
-      "startDate": "2025-07-01T00:00:00.000Z",
-      "endDate": "2026-06-30T00:00:00.000Z",
-      "amount": "81600",
-      "description": "",
-      "current": true
-    }
-  ],
+  "sows": [],
   "createdAt": "2025-12-17T21:27:59.532Z"
 }

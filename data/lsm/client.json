@@ -1,0 +1,41 @@
+{
+  "id": "1766173483285",
+  "name": "LSM",
+  "status": "active",
+  "notes": "This is because LSM loves me!!",
+  "contacts": [
+    {
+      "id": "1766173464369",
+      "name": "Dave ",
+      "email": "dave@dave.com",
+      "title": "Dave",
+      "primary": true
+    },
+    {
+      "id": "1766173480934",
+      "name": "Mel",
+      "email": "mel@mel.com",
+      "title": "Super Friend",
+      "primary": false
+    }
+  ],
+  "sows": [
+    {
+      "id": "1766173430462",
+      "startDate": "2025-12-19T00:00:00.000Z",
+      "endDate": "2025-12-31T00:00:00.000Z",
+      "amount": "1000000",
+      "description": "",
+      "current": true
+    },
+    {
+      "id": "1766173511519",
+      "startDate": "2026-01-19T00:00:00.000Z",
+      "endDate": "2026-01-07T00:00:00.000Z",
+      "amount": "1000",
+      "description": "",
+      "current": false
+    }
+  ],
+  "createdAt": "2025-12-19T19:44:43.285Z"
+}

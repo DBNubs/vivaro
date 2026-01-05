@@ -25,11 +25,16 @@ export const createClient = async (clientData) => {
       body: JSON.stringify(clientData),
     });
     if (!response.ok) {
-      throw new Error('Failed to create client');
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || 'Failed to create client');
     }
     return await response.json();
   } catch (error) {
     console.error('Error creating client:', error);
+    // Provide a more helpful error message if it's a network error
+    if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+      throw new Error('Unable to connect to server. Please make sure the server is running on port 3001.');
+    }
     throw error;
   }
 };
@@ -44,11 +49,16 @@ export const updateClient = async (clientId, clientData) => {
       body: JSON.stringify(clientData),
     });
     if (!response.ok) {
-      throw new Error('Failed to update client');
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || 'Failed to update client');
     }
     return await response.json();
   } catch (error) {
     console.error('Error updating client:', error);
+    // Provide a more helpful error message if it's a network error
+    if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+      throw new Error('Unable to connect to server. Please make sure the server is running on port 3001.');
+    }
     throw error;
   }
 };
@@ -334,12 +344,13 @@ export const createLinkResource = async (clientId, resourceData) => {
   }
 };
 
-export const uploadFileResource = async (clientId, file, title = '', description = '') => {
+export const uploadFileResource = async (clientId, file, title = '', description = '', folder = '') => {
   try {
     const formData = new FormData();
     formData.append('file', file);
     if (title) formData.append('title', title);
     if (description) formData.append('description', description);
+    if (folder) formData.append('folder', folder);
 
     const response = await fetch(`${API_BASE_URL}/clients/${clientId}/resources/file`, {
       method: 'POST',

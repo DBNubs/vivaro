@@ -3,12 +3,11 @@ import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import './MeetingNoteForm.css';
 
-const MeetingNoteForm = ({ note, onSave, onCancel }) => {
+const MeetingNoteForm = ({ note, onSave, onCancel, existingNotes = [] }) => {
   const [formData, setFormData] = useState({
     title: '',
     date: new Date().toISOString().split('T')[0],
     content: '',
-    label: '',
   });
 
   useEffect(() => {
@@ -17,7 +16,6 @@ const MeetingNoteForm = ({ note, onSave, onCancel }) => {
         title: note.title || '',
         date: note.date ? note.date.split('T')[0] : new Date().toISOString().split('T')[0],
         content: note.content || '',
-        label: note.label || '',
       });
     }
   }, [note]);
@@ -84,23 +82,6 @@ const MeetingNoteForm = ({ note, onSave, onCancel }) => {
               required
               placeholder="Enter note title"
             />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="label">Type</label>
-            <select
-              id="label"
-              name="label"
-              value={formData.label}
-              onChange={handleChange}
-            >
-              <option value="">Select type...</option>
-              <option value="Note">Note</option>
-              <option value="Slack">Slack</option>
-              <option value="Email">Email</option>
-              <option value="Sync Call">Sync Call</option>
-              <option value="Brainstorming">Brainstorming</option>
-            </select>
           </div>
 
           <div className="form-group">
