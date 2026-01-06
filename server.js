@@ -8,7 +8,7 @@ const os = require('os');
 let logDir = null;
 let logFile = null;
 
-// Try DATA_DIR first (set by Electron in production)
+// Try DATA_DIR first (set by Neutralino in production)
 if (process.env.DATA_DIR) {
   logDir = process.env.DATA_DIR;
 } else {
@@ -40,7 +40,7 @@ __dirname: ${__dirname}
 process.cwd(): ${process.cwd()}
 process.argv: ${JSON.stringify(process.argv)}
 NODE_ENV: ${process.env.NODE_ENV}
-ELECTRON: ${process.env.ELECTRON}
+NEUTRALINO: ${process.env.NEUTRALINO}
 NODE_PATH: ${process.env.NODE_PATH}
 DATA_DIR: ${process.env.DATA_DIR || '(not set)'}
 PID: ${process.pid}
@@ -62,7 +62,6 @@ console.log('__dirname:', __dirname);
 console.log('process.cwd():', process.cwd());
 console.log('process.argv:', process.argv);
   console.log('NODE_ENV:', process.env.NODE_ENV);
-  console.log('ELECTRON:', process.env.ELECTRON);
   console.log('NEUTRALINO:', process.env.NEUTRALINO);
   console.log('NODE_PATH:', process.env.NODE_PATH);
 // Force flush
@@ -100,7 +99,7 @@ try {
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-// Use environment variable for data directory if set (from Electron), otherwise use default
+// Use environment variable for data directory if set (from Neutralino), otherwise use default
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const OLD_DATA_FILE = path.join(DATA_DIR, 'clients.json');
 
@@ -112,10 +111,10 @@ app.use(cors());
 app.use(express.json());
 app.use('/api/files', express.static(path.join(__dirname, 'data')));
 
-// Serve React app in production (for Electron/Neutralino)
-// Only serve static files if we're in Electron, Neutralino, or production mode
-const shouldServeStatic = process.env.ELECTRON || process.env.NEUTRALINO || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER);
-console.log('Should serve static files:', shouldServeStatic, '(ELECTRON:', process.env.ELECTRON, 'NEUTRALINO:', process.env.NEUTRALINO, 'NODE_ENV:', process.env.NODE_ENV, ')');
+// Serve React app in production (for Neutralino)
+// Only serve static files if we're in Neutralino or production mode
+const shouldServeStatic = process.env.NEUTRALINO || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER);
+console.log('Should serve static files:', shouldServeStatic, '(NEUTRALINO:', process.env.NEUTRALINO, 'NODE_ENV:', process.env.NODE_ENV, ')');
 
 if (shouldServeStatic) {
   const buildPath = path.join(__dirname, 'build');
@@ -1298,8 +1297,8 @@ app.delete('/api/clients/:id/contacts/:contactId', async (req, res) => {
 });
 
 // Serve React app catch-all route (must be after all API routes)
-// Only serve static files if we're in Electron, Neutralino, or production mode
-if (process.env.ELECTRON || process.env.NEUTRALINO || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
+// Only serve static files if we're in Neutralino or production mode
+if (process.env.NEUTRALINO || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
   const buildPath = path.join(__dirname, 'build');
   const indexHtmlPath = path.join(buildPath, 'index.html');
   app.get('*', (req, res) => {
@@ -1365,7 +1364,7 @@ async function startServer() {
     console.log(`__dirname: ${__dirname}`);
     console.log(`PORT: ${PORT}`);
     console.log(`DATA_DIR: ${DATA_DIR}`);
-    console.log(`ELECTRON: ${process.env.ELECTRON}`);
+    console.log(`NEUTRALINO: ${process.env.NEUTRALINO}`);
     console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
 
     await ensureDataDirectory();
@@ -1398,12 +1397,11 @@ async function startServer() {
 }
 
 // Auto-start the server
-// If ELECTRON is set, we're being forked by Electron, so start the server
-// If ELECTRON is not set, we're running standalone, so also start the server
+// If NEUTRALINO is set, we're being run by Neutralino, so start the server
+// If NEUTRALINO is not set, we're running standalone, so also start the server
 startServer().catch((error) => {
   console.error('Fatal error starting server:', error);
   console.error('Stack:', error.stack);
-  // Ensure we exit with error code so Electron can detect the failure
   process.exit(1);
 });
 
@@ -1420,5 +1418,5 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-// Export for Electron to use
+// Export for use by other modules if needed
 module.exports = { app, startServer };

@@ -2,53 +2,7 @@
   "name": "pm-dashboard",
   "version": "0.1.0",
   "private": true,
-  "main": "electron/main.js",
   "author": "Lullabot",
-  "homepage": "./",
-  "build": {
-    "appId": "com.lullabot.pm-dashboard",
-    "productName": "Vivaro",
-    "asar": false,
-    "extraMetadata": {
-      "main": "electron/main.js"
-    },
-    "files": [
-      "build/**/*",
-      "electron/**/*",
-      "server.js",
-      "package.json",
-      "!node_modules/@testing-library/**",
-      "!node_modules/@types/**",
-      "node_modules/call-bind-apply-helpers/**/*",
-      "node_modules/call-bound/**/*",
-      "node_modules/side-channel-map/**/*",
-      "node_modules/**/*"
-    ],
-    "afterPack": "electron-builder-after-pack.js",
-    "npmRebuild": false,
-    "nodeGypRebuild": false,
-    "mac": {
-      "category": "public.app-category.business",
-      "icon": "build/icons/icon.icns",
-      "target": [
-        "dmg",
-        "zip"
-      ]
-    },
-    "win": {
-      "icon": "build/icons/icon.ico",
-      "target": [
-        "nsis",
-        "portable"
-      ]
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ]
-    }
-  },
   "dependencies": {
     "@ckeditor/ckeditor5-build-classic": "^43.1.0",
     "@ckeditor/ckeditor5-react": "^11.0.0",
@@ -68,10 +22,7 @@
   },
   "devDependencies": {
     "@neutralinojs/neu": "^11.6.0",
-    "@resvg/resvg-js": "^2.6.2",
-    "electron": "^32.0.0",
-    "electron-builder": "^25.1.8",
-    "electron-icon-builder": "^2.0.1"
+    "@resvg/resvg-js": "^2.6.2"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -79,15 +30,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "electron": "electron .",
-    "electron-dev": "ELECTRON_IS_DEV=1 NODE_ENV=development electron .",
-    "electron-build": "npm run build && electron .",
-    "dist": "npm run build && npm install --production=false && electron-builder",
-    "dist-mac": "npm run build && npm install --production=false && electron-builder --mac",
-    "dist-win": "npm run build && npm install --production=false && electron-builder --win",
-    "dist-linux": "npm run build && npm install --production=false && electron-builder --linux",
     "icon:convert": "node convert-icon.js",
-    "icon:generate": "npm run icon:convert && npx electron-icon-builder --input=./icon.png --output=./build --flatten",
     "neutralino:update": "npx @neutralinojs/neu update",
     "neutralino:get-binaries": "./get-neutralino-binaries.sh",
     "neutralino:dev": "node neutralino-main.js & npx @neutralinojs/neu run",
