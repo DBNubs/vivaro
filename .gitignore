@@ -30,3 +30,6 @@ yarn-error.log*
 *.AppImage
 *.deb
 *.rpm
+
+# Application data (runtime data, not source code)
+/data

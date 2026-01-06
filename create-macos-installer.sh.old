@@ -1,0 +1,260 @@
+#!/bin/bash
+# Script to create a macOS .app bundle and DMG installer
+
+set -e
+
+APP_NAME="Vivaro"
+BUNDLE_NAME="${APP_NAME}.app"
+DMG_NAME="${APP_NAME}-Installer.dmg"
+BUILD_DIR="dist/vivaro"
+BUNDLE_DIR="dist/${BUNDLE_NAME}"
+CONTENTS_DIR="${BUNDLE_DIR}/Contents"
+MACOS_DIR="${CONTENTS_DIR}/MacOS"
+RESOURCES_DIR="${CONTENTS_DIR}/Resources"
+
+echo "Creating macOS app bundle..."
+
+# Clean up any existing bundle
+rm -rf "${BUNDLE_DIR}"
+
+# Create app bundle structure
+mkdir -p "${MACOS_DIR}"
+mkdir -p "${RESOURCES_DIR}"
+
+# Copy the executable to Resources (we'll use launcher as main executable)
+if [ -f "${BUILD_DIR}/vivaro-mac_arm64" ]; then
+  cp "${BUILD_DIR}/vivaro-mac_arm64" "${RESOURCES_DIR}/vivaro-mac_arm64"
+  chmod +x "${RESOURCES_DIR}/vivaro-mac_arm64"
+  echo "✓ Copied ARM64 binary to Resources"
+elif [ -f "${BUILD_DIR}/vivaro-mac_x64" ]; then
+  cp "${BUILD_DIR}/vivaro-mac_x64" "${RESOURCES_DIR}/vivaro-mac_x64"
+  chmod +x "${RESOURCES_DIR}/vivaro-mac_x64"
+  echo "✓ Copied x64 binary to Resources"
+else
+  echo "✗ No binary found in ${BUILD_DIR}"
+  exit 1
+fi
+
+# Copy resources
+if [ -f "${BUILD_DIR}/resources.neu" ]; then
+  cp "${BUILD_DIR}/resources.neu" "${RESOURCES_DIR}/"
+  echo "✓ Copied resources.neu"
+fi
+
+# Copy extensions if they exist
+if [ -d "${BUILD_DIR}/extensions" ]; then
+  cp -r "${BUILD_DIR}/extensions" "${RESOURCES_DIR}/"
+  echo "✓ Copied extensions"
+fi
+
+# Copy server.js and necessary files to Resources
+if [ -f "server.js" ]; then
+  cp server.js "${RESOURCES_DIR}/"
+  echo "✓ Copied server.js"
+fi
+
+# Copy necessary node_modules (minimal set for Express server)
+if [ -d "node_modules" ]; then
+  echo "Copying essential node_modules..."
+  mkdir -p "${RESOURCES_DIR}/node_modules"
+
+  # Copy only essential dependencies for Express server
+  ESSENTIAL_MODULES=("express" "cors" "multer" "call-bind-apply-helpers" "call-bound" "side-channel-map")
+  for module in "${ESSENTIAL_MODULES[@]}"; do
+    if [ -d "node_modules/${module}" ]; then
+      cp -r "node_modules/${module}" "${RESOURCES_DIR}/node_modules/" 2>/dev/null || true
+    fi
+  done
+
+  # Copy all node_modules (simpler but larger)
+  # cp -r node_modules "${RESOURCES_DIR}/" 2>/dev/null || true
+
+  echo "✓ Copied node_modules"
+fi
+
+# Create launcher script that starts server then Neutralino
+cat > "${MACOS_DIR}/launcher.sh" << 'LAUNCHER_EOF'
+#!/bin/bash
+# Launcher script for Vivaro - starts Express server then Neutralino
+
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RESOURCES_DIR="${APP_DIR}/Contents/Resources"
+MACOS_DIR="${APP_DIR}/Contents/MacOS"
+APP_NAME="Vivaro"
+
+# Get data directory
+DATA_DIR="${HOME}/.vivaro/data"
+mkdir -p "${DATA_DIR}"
+
+# Start Express server in background
+cd "${RESOURCES_DIR}"
+export PORT=3001
+export NEUTRALINO=1
+export DATA_DIR="${DATA_DIR}"
+export NODE_PATH="${RESOURCES_DIR}"
+
+# Find node executable
+NODE_CMD=$(which node)
+if [ -z "$NODE_CMD" ]; then
+  # Try common locations
+  if [ -f "/usr/local/bin/node" ]; then
+    NODE_CMD="/usr/local/bin/node"
+  elif [ -f "/opt/homebrew/bin/node" ]; then
+    NODE_CMD="/opt/homebrew/bin/node"
+  else
+    osascript -e 'display dialog "Node.js not found. Please install Node.js to run Vivaro." buttons {"OK"} default button "OK"'
+    exit 1
+  fi
+fi
+
+# Start server
+"${NODE_CMD}" server.js > /dev/null 2>&1 &
+SERVER_PID=$!
+
+# Wait for server to start
+sleep 2
+
+# Check if server is running
+if ! kill -0 $SERVER_PID 2>/dev/null; then
+  osascript -e 'display dialog "Failed to start server. Please check that Node.js is installed and port 3001 is available." buttons {"OK"} default button "OK"'
+  exit 1
+fi
+
+# Launch Neutralino
+cd "${MACOS_DIR}"
+exec "./${APP_NAME}"
+
+# Cleanup on exit
+trap "kill $SERVER_PID 2>/dev/null" EXIT
+LAUNCHER_EOF
+
+chmod +x "${MACOS_DIR}/launcher.sh"
+echo "✓ Created launcher script"
+
+# Note: macOS .app bundles need a binary executable, not a shell script
+# So we'll keep the Neutralino binary as the main executable
+# The extension in neutralino.config.json should start the server
+# But we'll also include the launcher as a backup method
+
+# Update Info.plist - keep Neutralino binary as executable
+cat > "${CONTENTS_DIR}/Info.plist" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>launcher.sh</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.lullabot.pm-dashboard</string>
+  <key>CFBundleName</key>
+  <string>${APP_NAME}</string>
+  <key>CFBundleVersion</key>
+  <string>0.1.0</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.0</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>10.13</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+</dict>
+</plist>
+EOF
+echo "✓ Updated Info.plist to use launcher"
+
+# Create Info.plist
+cat > "${CONTENTS_DIR}/Info.plist" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>${APP_NAME}</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.lullabot.pm-dashboard</string>
+  <key>CFBundleName</key>
+  <string>${APP_NAME}</string>
+  <key>CFBundleVersion</key>
+  <string>0.1.0</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.0</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>10.13</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+</dict>
+</plist>
+EOF
+echo "✓ Created Info.plist"
+
+# Copy icon if it exists
+if [ -f "icon.png" ]; then
+  # Convert to .icns if iconutil is available
+  if command -v iconutil &> /dev/null; then
+    ICONSET_DIR="temp.iconset"
+    mkdir -p "${ICONSET_DIR}"
+    sips -z 16 16 icon.png --out "${ICONSET_DIR}/icon_16x16.png" 2>/dev/null || cp icon.png "${ICONSET_DIR}/icon_16x16.png"
+    sips -z 32 32 icon.png --out "${ICONSET_DIR}/icon_16x16@2x.png" 2>/dev/null || cp icon.png "${ICONSET_DIR}/icon_16x16@2x.png"
+    sips -z 32 32 icon.png --out "${ICONSET_DIR}/icon_32x32.png" 2>/dev/null || cp icon.png "${ICONSET_DIR}/icon_32x32.png"
+    sips -z 64 64 icon.png --out "${ICONSET_DIR}/icon_32x32@2x.png" 2>/dev/null || cp icon.png "${ICONSET_DIR}/icon_32x32@2x.png"
+    sips -z 128 128 icon.png --out "${ICONSET_DIR}/icon_128x128.png" 2>/dev/null || cp icon.png "${ICONSET_DIR}/icon_128x128.png"
+    sips -z 256 256 icon.png --out "${ICONSET_DIR}/icon_128x128@2x.png" 2>/dev/null || cp icon.png "${ICONSET_DIR}/icon_128x128@2x.png"
+    sips -z 256 256 icon.png --out "${ICONSET_DIR}/icon_256x256.png" 2>/dev/null || cp icon.png "${ICONSET_DIR}/icon_256x256.png"
+    sips -z 512 512 icon.png --out "${ICONSET_DIR}/icon_256x256@2x.png" 2>/dev/null || cp icon.png "${ICONSET_DIR}/icon_256x256@2x.png"
+    sips -z 512 512 icon.png --out "${ICONSET_DIR}/icon_512x512.png" 2>/dev/null || cp icon.png "${ICONSET_DIR}/icon_512x512.png"
+    sips -z 1024 1024 icon.png --out "${ICONSET_DIR}/icon_512x512@2x.png" 2>/dev/null || cp icon.png "${ICONSET_DIR}/icon_512x512@2x.png"
+    iconutil -c icns "${ICONSET_DIR}" -o "${RESOURCES_DIR}/AppIcon.icns" 2>/dev/null || cp icon.png "${RESOURCES_DIR}/AppIcon.icns"
+    rm -rf "${ICONSET_DIR}"
+    echo "✓ Created app icon"
+  else
+    cp icon.png "${RESOURCES_DIR}/AppIcon.icns"
+    echo "✓ Copied app icon (not converted to .icns)"
+  fi
+fi
+
+echo ""
+echo "✓ App bundle created at: ${BUNDLE_DIR}"
+echo "  Size: $(du -sh "${BUNDLE_DIR}" | cut -f1)"
+
+# Create DMG if hdiutil is available
+if command -v hdiutil &> /dev/null; then
+  echo ""
+  echo "Creating DMG installer..."
+
+  DMG_TEMP="dist/dmg_temp"
+  rm -rf "${DMG_TEMP}" "${DMG_NAME}"
+  mkdir -p "${DMG_TEMP}"
+
+  # Copy app to DMG
+  cp -R "${BUNDLE_DIR}" "${DMG_TEMP}/"
+
+  # Create Applications symlink
+  ln -s /Applications "${DMG_TEMP}/Applications"
+
+  # Create DMG
+  hdiutil create -volname "${APP_NAME}" -srcfolder "${DMG_TEMP}" -ov -format UDZO "dist/${DMG_NAME}"
+
+  # Clean up
+  rm -rf "${DMG_TEMP}"
+
+  echo "✓ DMG created at: dist/${DMG_NAME}"
+  echo "  Size: $(du -sh "dist/${DMG_NAME}" | cut -f1)"
+  echo ""
+  echo "Users can double-click the DMG to install!"
+else
+  echo ""
+  echo "hdiutil not found - skipping DMG creation"
+  echo "App bundle is ready at: ${BUNDLE_DIR}"
+  echo "Users can drag it to Applications folder"
+fi
+
+echo ""
+echo "Done! 🎉"
+

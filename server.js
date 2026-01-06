@@ -61,9 +61,10 @@ console.log('=== SERVER.JS STARTING ===');
 console.log('__dirname:', __dirname);
 console.log('process.cwd():', process.cwd());
 console.log('process.argv:', process.argv);
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('ELECTRON:', process.env.ELECTRON);
-console.log('NODE_PATH:', process.env.NODE_PATH);
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('ELECTRON:', process.env.ELECTRON);
+  console.log('NEUTRALINO:', process.env.NEUTRALINO);
+  console.log('NODE_PATH:', process.env.NODE_PATH);
 // Force flush
 if (process.stdout.isTTY) process.stdout.write('');
 if (process.stderr.isTTY) process.stderr.write('');
@@ -111,22 +112,30 @@ app.use(cors());
 app.use(express.json());
 app.use('/api/files', express.static(path.join(__dirname, 'data')));
 
-// Serve React app in production (for Electron)
-// Only serve static files if we're in Electron or production mode
-if (process.env.ELECTRON || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
+// Serve React app in production (for Electron/Neutralino)
+// Only serve static files if we're in Electron, Neutralino, or production mode
+const shouldServeStatic = process.env.ELECTRON || process.env.NEUTRALINO || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER);
+console.log('Should serve static files:', shouldServeStatic, '(ELECTRON:', process.env.ELECTRON, 'NEUTRALINO:', process.env.NEUTRALINO, 'NODE_ENV:', process.env.NODE_ENV, ')');
+
+if (shouldServeStatic) {
   const buildPath = path.join(__dirname, 'build');
+  console.log('Checking build path:', buildPath);
   // Check if build directory exists
   try {
     if (fsSync.existsSync(buildPath)) {
       app.use(express.static(buildPath));
-      console.log(`Serving static files from: ${buildPath}`);
+      console.log(`✓ Serving static files from: ${buildPath}`);
     } else {
-      console.warn(`Warning: Build directory not found at ${buildPath}. Static files will not be served.`);
+      console.warn(`⚠ Warning: Build directory not found at ${buildPath}. Static files will not be served.`);
+      console.warn(`  __dirname is: ${__dirname}`);
+      console.warn(`  Current working directory: ${process.cwd()}`);
     }
   } catch (error) {
     console.error(`Error checking build directory: ${error.message}`);
   }
   // Note: Catch-all route for serving index.html is defined after all API routes
+} else {
+  console.warn('⚠ Static file serving is DISABLED - environment variables not set correctly');
 }
 
 // Ensure data directory exists
@@ -1289,8 +1298,8 @@ app.delete('/api/clients/:id/contacts/:contactId', async (req, res) => {
 });
 
 // Serve React app catch-all route (must be after all API routes)
-// Only serve static files if we're in Electron or production mode
-if (process.env.ELECTRON || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
+// Only serve static files if we're in Electron, Neutralino, or production mode
+if (process.env.ELECTRON || process.env.NEUTRALINO || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
   const buildPath = path.join(__dirname, 'build');
   const indexHtmlPath = path.join(buildPath, 'index.html');
   app.get('*', (req, res) => {
