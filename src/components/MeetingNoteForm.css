@@ -74,6 +74,43 @@
   box-shadow: 0 0 0 3px rgba(0, 99, 124, 0.1);
 }
 
+/* Ensure lists display correctly in CKEditor */
+.ckeditor-wrapper .ck-editor__editable ul,
+.ckeditor-wrapper .ck-editor__editable ol {
+  margin: 1rem 0;
+  padding-left: 2rem;
+  list-style-position: outside;
+}
+
+.ckeditor-wrapper .ck-editor__editable ul {
+  list-style-type: disc;
+}
+
+.ckeditor-wrapper .ck-editor__editable ol {
+  list-style-type: decimal;
+}
+
+.ckeditor-wrapper .ck-editor__editable li {
+  margin: 0.5rem 0;
+  display: list-item;
+}
+
+.ckeditor-wrapper .ck-editor__editable ul ul {
+  list-style-type: circle;
+}
+
+.ckeditor-wrapper .ck-editor__editable ul ul ul {
+  list-style-type: square;
+}
+
+.ckeditor-wrapper .ck-editor__editable ol ol {
+  list-style-type: lower-alpha;
+}
+
+.ckeditor-wrapper .ck-editor__editable ol ol ol {
+  list-style-type: lower-roman;
+}
+
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
