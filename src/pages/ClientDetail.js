@@ -274,7 +274,6 @@ function ClientDetail() {
           try {
             const created = await createMeetingNote(id, folderNote);
             createdFolders.push(currentPath);
-            console.log(`Created folder placeholder for: ${currentPath}`, created);
           } catch (err) {
             console.error(`Failed to create folder placeholder for ${currentPath}:`, err);
             // Continue creating other folders even if one fails
