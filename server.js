@@ -48,43 +48,25 @@ Log file: ${logFile}
 \n`;
 
   fsSync.appendFileSync(logFile, startupInfo);
-  console.log(`Log file written to: ${logFile}`);
 } catch (logError) {
   // If we can't write to log file, that's okay, continue
   console.error('Could not write to log file:', logError.message);
 }
 
-// Use both console.log and process.stdout.write to ensure output is captured
-process.stdout.write('=== SERVER.JS STARTING ===\n');
-process.stderr.write('=== SERVER.JS STARTING (stderr) ===\n');
-console.log('=== SERVER.JS STARTING ===');
-console.log('__dirname:', __dirname);
-console.log('process.cwd():', process.cwd());
-console.log('process.argv:', process.argv);
-  console.log('NODE_ENV:', process.env.NODE_ENV);
-  console.log('NEUTRALINO:', process.env.NEUTRALINO);
-  console.log('NODE_PATH:', process.env.NODE_PATH);
-// Force flush
-if (process.stdout.isTTY) process.stdout.write('');
-if (process.stderr.isTTY) process.stderr.write('');
-
 // Note: fsSync and path are already required above for logging
 // Wrap requires in try-catch to catch module loading errors
-let express, fs, cors, multer;
+let express, fs, cors, multer, execAsync, https;
 
 try {
-  console.log('Loading dependencies...');
   express = require('express');
   fs = require('fs').promises;
   // fsSync and path already required above
   cors = require('cors');
   multer = require('multer');
-  console.log('Dependencies loaded successfully');
-
-  // Log success to file
-  try {
-    fsSync.appendFileSync(logFile, 'Dependencies loaded successfully\n');
-  } catch (e) {}
+  const { exec } = require('child_process');
+  const { promisify } = require('util');
+  execAsync = promisify(exec);
+  https = require('https');
 } catch (error) {
   const errorMsg = `ERROR LOADING DEPENDENCIES: ${error.message}\nStack: ${error.stack}\n__dirname: ${__dirname}\nprocess.cwd(): ${process.cwd()}\n`;
   console.error(errorMsg);
@@ -114,27 +96,20 @@ app.use('/api/files', express.static(path.join(__dirname, 'data')));
 // Serve React app in production (for Neutralino)
 // Only serve static files if we're in Neutralino or production mode
 const shouldServeStatic = process.env.NEUTRALINO || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER);
-console.log('Should serve static files:', shouldServeStatic, '(NEUTRALINO:', process.env.NEUTRALINO, 'NODE_ENV:', process.env.NODE_ENV, ')');
 
 if (shouldServeStatic) {
   const buildPath = path.join(__dirname, 'build');
-  console.log('Checking build path:', buildPath);
   // Check if build directory exists
   try {
     if (fsSync.existsSync(buildPath)) {
       app.use(express.static(buildPath));
-      console.log(`✓ Serving static files from: ${buildPath}`);
     } else {
       console.warn(`⚠ Warning: Build directory not found at ${buildPath}. Static files will not be served.`);
-      console.warn(`  __dirname is: ${__dirname}`);
-      console.warn(`  Current working directory: ${process.cwd()}`);
     }
   } catch (error) {
     console.error(`Error checking build directory: ${error.message}`);
   }
   // Note: Catch-all route for serving index.html is defined after all API routes
-} else {
-  console.warn('⚠ Static file serving is DISABLED - environment variables not set correctly');
 }
 
 // Ensure data directory exists
@@ -1296,6 +1271,273 @@ app.delete('/api/clients/:id/contacts/:contactId', async (req, res) => {
   }
 });
 
+// Update check and update endpoints
+// Helper function to get current git tag or version
+async function getCurrentVersion() {
+  try {
+    // Try to get the current git tag
+    try {
+      const { stdout: tag } = await execAsync('git describe --tags --exact-match 2>/dev/null || git describe --tags 2>/dev/null || echo ""', {
+        cwd: __dirname,
+        shell: '/bin/bash'
+      });
+      const currentTag = tag.trim();
+      if (currentTag && currentTag !== '') {
+        // Remove 'v' prefix if present for consistency
+        return currentTag.replace(/^v/, '');
+      }
+    } catch (gitError) {
+      // Git command failed, fall through to package.json
+    }
+
+    // Fallback to package.json version
+    const packageJson = JSON.parse(await fs.readFile(path.join(__dirname, 'package.json'), 'utf8'));
+    return packageJson.version;
+  } catch (error) {
+    // Final fallback
+    try {
+      const packageJson = JSON.parse(await fs.readFile(path.join(__dirname, 'package.json'), 'utf8'));
+      return packageJson.version;
+    } catch (e) {
+      return '0.1.0';
+    }
+  }
+}
+
+// Helper function to get latest GitHub release
+async function getLatestGitHubRelease() {
+  return new Promise((resolve, reject) => {
+    // First try to get the latest release
+    const releaseOptions = {
+      hostname: 'api.github.com',
+      path: '/repos/DBNubs/vivaro/releases/latest',
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Vivaro-Update-Checker',
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    };
+
+    const releaseReq = https.request(releaseOptions, (res) => {
+      let data = '';
+
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try {
+            const release = JSON.parse(data);
+            resolve({
+              tag: release.tag_name,
+              name: release.name,
+              published_at: release.published_at,
+              body: release.body
+            });
+          } catch (e) {
+            reject(new Error('Failed to parse GitHub API response'));
+          }
+        } else if (res.statusCode === 404) {
+          // No releases found, try to get the latest tag instead
+          getLatestGitHubTag().then(resolve).catch(reject);
+        } else {
+          reject(new Error(`GitHub API returned status ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    releaseReq.on('error', (error) => {
+      reject(error);
+    });
+
+    releaseReq.end();
+  });
+}
+
+// Helper function to get latest GitHub tag (fallback when no releases exist)
+async function getLatestGitHubTag() {
+  return new Promise((resolve, reject) => {
+    // Use the tags endpoint which returns tags sorted by creation date (newest first)
+    const options = {
+      hostname: 'api.github.com',
+      path: '/repos/DBNubs/vivaro/tags?per_page=1',
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Vivaro-Update-Checker',
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try {
+            const tags = JSON.parse(data);
+            if (tags.length > 0) {
+              // Tags endpoint returns tag name directly
+              const tagName = tags[0].name;
+              resolve({
+                tag: tagName,
+                name: tagName,
+                published_at: new Date().toISOString(),
+                body: ''
+              });
+            } else {
+              reject(new Error('No tags found in repository'));
+            }
+          } catch (e) {
+            reject(new Error('Failed to parse GitHub tags API response'));
+          }
+        } else {
+          reject(new Error(`GitHub Tags API returned status ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.end();
+  });
+}
+
+// GET /api/updates/check - Check for updates
+app.get('/api/updates/check', async (req, res) => {
+  try {
+    const currentVersion = await getCurrentVersion();
+
+    try {
+      const latestRelease = await getLatestGitHubRelease();
+
+      // Normalize versions by removing 'v' prefix for comparison
+      const normalizedCurrent = currentVersion.replace(/^v/, '').trim();
+      const normalizedLatest = latestRelease.tag.replace(/^v/, '').trim();
+      const isUpToDate = normalizedCurrent === normalizedLatest;
+
+      res.json({
+        currentVersion,
+        latestVersion: latestRelease.tag,
+        isUpToDate,
+        releaseInfo: {
+          name: latestRelease.name,
+          published_at: latestRelease.published_at,
+          body: latestRelease.body
+        }
+      });
+    } catch (githubError) {
+      // If GitHub API fails (private repo, no tags, network error),
+      // return current version and indicate we couldn't check
+      console.error('Error fetching from GitHub:', githubError.message);
+      res.json({
+        currentVersion,
+        latestVersion: null,
+        isUpToDate: true, // Assume up to date if we can't check
+        error: 'Unable to check for updates',
+        message: 'Could not connect to GitHub to check for updates. This may be because the repository is private or there are no releases/tags available.',
+        releaseInfo: null
+      });
+    }
+  } catch (error) {
+    console.error('Error checking for updates:', error);
+    res.status(500).json({
+      error: 'Failed to check for updates',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/updates/perform - Perform the update
+app.post('/api/updates/perform', async (req, res) => {
+  try {
+    // Start the update process asynchronously
+    res.json({
+      message: 'Update started',
+      status: 'in_progress'
+    });
+
+    // Perform update in background
+    (async () => {
+      try {
+        // Step 1: Pull latest code
+        console.log('Pulling latest code from GitHub...');
+        try {
+          await execAsync('git pull origin main', {
+            cwd: __dirname,
+            maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large outputs
+          });
+        } catch (gitError) {
+          // Try with different branch names
+          try {
+            await execAsync('git pull origin master', {
+              cwd: __dirname,
+              maxBuffer: 10 * 1024 * 1024
+            });
+          } catch (e) {
+            throw new Error(`Git pull failed: ${gitError.message}. Please ensure you have a git repository and are connected to the remote.`);
+          }
+        }
+
+        // Step 2: Install dependencies (in case package.json changed)
+        console.log('Installing dependencies...');
+        await execAsync('npm install', {
+          cwd: __dirname,
+          maxBuffer: 10 * 1024 * 1024
+        });
+
+        // Step 3: Rebuild React app
+        console.log('Rebuilding React app...');
+        await execAsync('npm run build', {
+          cwd: __dirname,
+          maxBuffer: 10 * 1024 * 1024
+        });
+
+        // Step 4: Copy neutralino.js and update resources
+        console.log('Updating Neutralino resources...');
+        await execAsync('cp neutralino.js build/ && rm -rf resources && cp -r build resources', {
+          cwd: __dirname,
+          shell: '/bin/bash',
+          maxBuffer: 10 * 1024 * 1024
+        });
+
+        // Step 5: Rebuild Neutralino app
+        console.log('Rebuilding Neutralino app...');
+        await execAsync('npx @neutralinojs/neu build', {
+          cwd: __dirname,
+          maxBuffer: 10 * 1024 * 1024
+        });
+
+        console.log('Update completed successfully!');
+        console.log('Please restart the application to use the new version.');
+
+        // Note: We can't automatically restart the app from here since we're running inside it
+        // The user will need to manually restart
+
+      } catch (error) {
+        console.error('Error during update:', error);
+        console.error('Update failed. Please check the logs and try again.');
+        console.error('Error details:', error.message);
+        if (error.stdout) console.error('Command output:', error.stdout);
+        if (error.stderr) console.error('Command errors:', error.stderr);
+      }
+    })();
+
+  } catch (error) {
+    console.error('Error starting update:', error);
+    res.status(500).json({
+      error: 'Failed to start update',
+      message: error.message
+    });
+  }
+});
+
 // Serve React app catch-all route (must be after all API routes)
 // Only serve static files if we're in Neutralino or production mode
 if (process.env.NEUTRALINO || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
@@ -1360,13 +1602,6 @@ function initializeMulter() {
 // Initialize server
 async function startServer() {
   try {
-    console.log('Starting server...');
-    console.log(`__dirname: ${__dirname}`);
-    console.log(`PORT: ${PORT}`);
-    console.log(`DATA_DIR: ${DATA_DIR}`);
-    console.log(`NEUTRALINO: ${process.env.NEUTRALINO}`);
-    console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
-
     await ensureDataDirectory();
     await migrateOldData();
 

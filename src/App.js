@@ -4,12 +4,243 @@ import './App.css';
 import Dashboard from './pages/Dashboard';
 import ClientDetail from './pages/ClientDetail';
 
+// Helper function to show native message box
+async function showMessageBox(title, content, choice = 'OK', icon = 'INFO') {
+  if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.os && window.Neutralino.os.showMessageBox) {
+    try {
+      return await window.Neutralino.os.showMessageBox(title, content, choice, icon);
+    } catch (error) {
+      console.error('Error showing native message box:', error);
+      // Fallback to browser alert
+      if (choice === 'OK') {
+        alert(`${title}\n\n${content}`);
+        return 'OK';
+      } else {
+        return window.confirm(`${title}\n\n${content}`) ? 'YES' : 'NO';
+      }
+    }
+  } else {
+    // Fallback to browser alert/confirm
+    if (choice === 'OK') {
+      alert(`${title}\n\n${content}`);
+      return 'OK';
+    } else {
+      return window.confirm(`${title}\n\n${content}`) ? 'YES' : 'NO';
+    }
+  }
+}
+
+// Function to check for updates
+async function checkForUpdates() {
+  console.log('checkForUpdates function called');
+  try {
+    // Show checking message
+    const checkingMsg = 'Checking for updates...';
+    console.log('Showing checking message');
+    await showMessageBox('Checking for Updates', checkingMsg, 'OK', 'INFO');
+
+    console.log('Fetching from http://localhost:3001/api/updates/check');
+    const response = await fetch('http://localhost:3001/api/updates/check');
+
+    console.log('Response status:', response.status);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Update check response:', data);
+
+    // Check if there was an error checking for updates
+    if (data.error) {
+      await showMessageBox(
+        data.error,
+        `${data.message || ''}\n\nCurrent version: ${data.currentVersion}`,
+        'OK',
+        'WARNING'
+      );
+      return;
+    }
+
+    // Check if up to date
+    if (data.isUpToDate === true) {
+      console.log('Version is up to date, showing message');
+      await showMessageBox(
+        'No Updates Available',
+        `You are running version ${data.currentVersion}, which is the latest version.`,
+        'OK',
+        'INFO'
+      );
+    } else if (data.latestVersion) {
+      // Update available
+      console.log('Update available, showing prompt');
+      const updateMessage = `Update available!\n\nCurrent version: ${data.currentVersion}\nLatest version: ${data.latestVersion}\n\nWould you like to update now?`;
+      const result = await showMessageBox('Update Available', updateMessage, 'YES_NO', 'QUESTION');
+
+      if (result === 'YES') {
+        await performUpdate();
+      }
+    } else {
+      // Fallback - shouldn't happen but just in case
+      console.log('Unexpected response format');
+      await showMessageBox(
+        'Update Check',
+        `Unable to determine update status.\n\nCurrent version: ${data.currentVersion || 'unknown'}`,
+        'OK',
+        'WARNING'
+      );
+    }
+  } catch (error) {
+    console.error('Error checking for updates:', error);
+    await showMessageBox(
+      'Update Check Failed',
+      `Failed to check for updates: ${error.message}\n\nPlease check your internet connection and try again.`,
+      'OK',
+      'ERROR'
+    );
+  }
+}
+
+// Function to perform the update
+async function performUpdate() {
+  try {
+    const result = await showMessageBox(
+      'Confirm Update',
+      'This will download and install the latest version.\n\nThe application will need to be restarted after the update completes.\n\nDo you want to continue?',
+      'YES_NO',
+      'QUESTION'
+    );
+
+    if (result !== 'YES') {
+      return;
+    }
+
+    await showMessageBox(
+      'Update Started',
+      'Update started. This may take a few minutes. Please do not close the application.\n\nYou will be notified when the update is complete.',
+      'OK',
+      'INFO'
+    );
+
+    const response = await fetch('http://localhost:3001/api/updates/perform', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    await response.json();
+
+    // The update runs in the background, so we'll show a message
+    // In a real implementation, you might want to poll for status or use websockets
+    await showMessageBox(
+      'Update In Progress',
+      'Update process has started.\n\nThe update is running in the background. Please wait a few minutes for it to complete.\n\nYou will need to restart the application after the update finishes to use the new version.',
+      'OK',
+      'INFO'
+    );
+
+  } catch (error) {
+    console.error('Error performing update:', error);
+    await showMessageBox(
+      'Update Failed',
+      `Failed to start update: ${error.message}\n\nPlease try again later.`,
+      'OK',
+      'ERROR'
+    );
+  }
+}
+
 function App() {
   useEffect(() => {
     let isNeutralinoReady = false;
     let checkInterval = null;
 
-    // Wait for Neutralino to be ready
+    // Initialize Neutralino if available
+    if (typeof window !== 'undefined' && window.Neutralino) {
+      try {
+        // Initialize Neutralino
+        if (typeof window.Neutralino.init === 'function') {
+          window.Neutralino.init();
+        }
+
+        // Set up menu in the ready event
+        if (window.Neutralino.events && typeof window.Neutralino.events.on === 'function') {
+          window.Neutralino.events.on('ready', () => {
+            const nl = window.Neutralino;
+
+            // Set up system menu
+            if (nl.window) {
+              try {
+                // Try different menu API methods based on Neutralino version
+                if (typeof nl.window.setMainMenu === 'function') {
+                  const menu = [
+                    {
+                      id: 'vivaro',
+                      text: 'Vivaro',
+                      menuItems: [
+                        {
+                          id: 'checkForUpdates',
+                          text: 'Check for updates...'
+                        }
+                      ]
+                    }
+                  ];
+                  nl.window.setMainMenu(menu);
+                } else if (typeof nl.window.setMenu === 'function') {
+                  const menu = [
+                    {
+                      id: 'vivaro',
+                      text: 'Vivaro',
+                      menuItems: [
+                        {
+                          id: 'checkForUpdates',
+                          text: 'Check for updates...'
+                        }
+                      ]
+                    }
+                  ];
+                  nl.window.setMenu(menu);
+                }
+              } catch (e) {
+                console.error('Could not set up system menu:', e);
+              }
+            }
+
+            // Listen for menu actions
+            nl.events.on('mainMenuItemClicked', async (event) => {
+              if (event.detail && event.detail.id === 'checkForUpdates') {
+                try {
+                  await checkForUpdates();
+                } catch (error) {
+                  console.error('Error in checkForUpdates:', error);
+                  alert(`Error checking for updates: ${error.message}`);
+                }
+              }
+            });
+
+            // Also try menuItemClicked as fallback
+            nl.events.on('menuItemClicked', async (event) => {
+              if (event.detail && (event.detail.id === 'checkForUpdates' || event.detail.action === 'checkForUpdates')) {
+                try {
+                  await checkForUpdates();
+                } catch (error) {
+                  console.error('Error in checkForUpdates:', error);
+                  alert(`Error checking for updates: ${error.message}`);
+                }
+              }
+            });
+          });
+        }
+      } catch (e) {
+        console.error('Error initializing Neutralino:', e);
+      }
+    }
+
+    // Wait for Neutralino to be ready (fallback for existing code)
     const waitForNeutralino = () => {
       return new Promise((resolve) => {
         if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.app) {
@@ -37,76 +268,34 @@ function App() {
       });
     };
 
-    // Initialize and wait for Neutralino
+    // Initialize and wait for Neutralino (for other functionality)
     waitForNeutralino().then((nl) => {
       if (nl) {
-        console.log('Neutralino API ready', nl);
-        console.log('Available APIs:', Object.keys(nl));
-
         // Try to set up Neutralino-specific event handlers if available
         if (nl.events && typeof nl.events.on === 'function') {
-          console.log('Neutralino events API available');
           // Try to listen for window events
           try {
             // Listen for window close requests
             nl.events.on('windowClose', () => {
-              console.log('Window close event from Neutralino');
               nl.app.exit();
             });
 
             // Also try 'close' event
             nl.events.on('close', () => {
-              console.log('Close event from Neutralino');
               nl.app.exit();
             });
           } catch (e) {
-            console.log('Could not set up window events:', e);
+            // Silently fail if events can't be set up
           }
         }
-
-        // Also try to use Neutralino's window API if available
-        if (nl.window) {
-          console.log('Neutralino window API available', Object.keys(nl.window));
-        }
-
-        // Check if there's a way to enable keyboard shortcuts
-        if (nl.os) {
-          console.log('Neutralino OS API available', Object.keys(nl.os));
-        }
-      } else {
-        console.log('Running in browser mode (Neutralino not available)');
       }
     });
 
-    // Test: Log ALL keyboard events to see if ANY are being caught
-    const testAllKeys = (event) => {
-      console.log('KEY EVENT CAUGHT:', {
-        key: event.key,
-        code: event.code,
-        metaKey: event.metaKey,
-        ctrlKey: event.ctrlKey,
-        shiftKey: event.shiftKey,
-        altKey: event.altKey,
-        target: event.target?.tagName,
-        type: event.type
-      });
-    };
-
     // Handle keyboard shortcuts
     const handleKeyDown = async (event) => {
-      // Log all modifier key combinations to debug
-      if (event.metaKey || event.ctrlKey) {
-        testAllKeys(event);
-      }
-
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? event.metaKey : event.ctrlKey;
       const key = event.key.toLowerCase();
-
-      // Debug: log keyboard events (remove in production)
-      if (modifier && (key === 'w' || key === 'q' || key === 'c' || key === 'v')) {
-        console.log('Keyboard shortcut detected:', { key, modifier, isNeutralinoReady, hasNeutralino: !!window.Neutralino });
-      }
 
       // Cmd+W or Ctrl+W: Close window (only in Neutralino)
       if (modifier && key === 'w' && !event.shiftKey && !event.altKey) {
@@ -114,7 +303,6 @@ function App() {
         if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.app) {
           event.preventDefault();
           event.stopPropagation();
-          console.log('Attempting to close window via Neutralino...');
           try {
             // Try with await first (if API is async)
             const result = window.Neutralino.app.exit();
@@ -131,12 +319,6 @@ function App() {
             }
           }
           return false;
-        } else {
-          console.log('Neutralino not available for Cmd+W', {
-            hasWindow: typeof window !== 'undefined',
-            hasNeutralino: typeof window !== 'undefined' && !!window.Neutralino,
-            hasApp: typeof window !== 'undefined' && window.Neutralino && !!window.Neutralino.app
-          });
         }
       }
 
@@ -146,7 +328,6 @@ function App() {
         if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.app) {
           event.preventDefault();
           event.stopPropagation();
-          console.log('Attempting to quit app via Neutralino...');
           try {
             // Try with await first (if API is async)
             const result = window.Neutralino.app.exit();
@@ -163,12 +344,6 @@ function App() {
             }
           }
           return false;
-        } else {
-          console.log('Neutralino not available for Cmd+Q', {
-            hasWindow: typeof window !== 'undefined',
-            hasNeutralino: typeof window !== 'undefined' && !!window.Neutralino,
-            hasApp: typeof window !== 'undefined' && window.Neutralino && !!window.Neutralino.app
-          });
         }
       }
 
@@ -177,18 +352,6 @@ function App() {
       if (modifier && ['c', 'v', 'x', 'a'].includes(key)) {
         // Don't prevent default - let browser/webview handle it
         // This ensures shortcuts work in text inputs and contenteditable areas
-        // But log if we detect the event
-        if (key === 'c' || key === 'v') {
-          console.log('Copy/paste shortcut detected, allowing default behavior');
-        }
-
-        // If we're in Neutralino and clipboard isn't working, try Neutralino's clipboard API
-        if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.clipboard) {
-          // Don't override - let the default behavior work first
-          // Only use Neutralino API as fallback if needed
-          console.log('Neutralino clipboard API available');
-        }
-
         return;
       }
     };
@@ -199,25 +362,6 @@ function App() {
       // that might not bubble to document
       handleKeyDown(event);
     };
-
-    // First, add a simple test listener to see if ANY keyboard events work
-    const testListener = (event) => {
-      console.log('TEST: Keyboard event received', event.key, event.metaKey, event.ctrlKey);
-    };
-
-    // Try adding listener immediately to body if it exists
-    if (document.body) {
-      document.body.addEventListener('keydown', testListener, true);
-    } else {
-      // Wait for body to be ready
-      const observer = new MutationObserver(() => {
-        if (document.body) {
-          document.body.addEventListener('keydown', testListener, true);
-          observer.disconnect();
-        }
-      });
-      observer.observe(document.documentElement, { childList: true });
-    }
 
     // Add event listener with capture phase to catch events early
     // Use capture phase to ensure we handle events before they're blocked
@@ -272,3 +416,4 @@ function App() {
 }
 
 export default App;
+
