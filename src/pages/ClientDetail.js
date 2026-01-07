@@ -15,6 +15,32 @@ import Tabs from '../components/Tabs';
 import { getClients, updateClient, archiveClient, unarchiveClient, deleteClient, getMeetingNotes, createMeetingNote, updateMeetingNote, deleteMeetingNote, getReminders, createReminder, updateReminder, deleteReminder, getMilestones, createMilestone, updateMilestone, deleteMilestone, getResources, createLinkResource, uploadFileResource, updateResource, deleteResource, getContacts, createContact, updateContact, deleteContact } from '../utils/storage';
 import './ClientDetail.css';
 
+// Helper function to show native message box (same as in App.js)
+async function showMessageBox(title, content, choice = 'OK', icon = 'INFO') {
+  if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.os && window.Neutralino.os.showMessageBox) {
+    try {
+      return await window.Neutralino.os.showMessageBox(title, content, choice, icon);
+    } catch (error) {
+      console.error('Error showing native message box:', error);
+      // Fallback to browser alert
+      if (choice === 'OK') {
+        alert(`${title}\n\n${content}`);
+        return 'OK';
+      } else {
+        return window.confirm(`${title}\n\n${content}`) ? 'YES' : 'NO';
+      }
+    }
+  } else {
+    // Fallback to browser alert/confirm
+    if (choice === 'OK') {
+      alert(`${title}\n\n${content}`);
+      return 'OK';
+    } else {
+      return window.confirm(`${title}\n\n${content}`) ? 'YES' : 'NO';
+    }
+  }
+}
+
 function ClientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -132,15 +158,56 @@ function ClientDetail() {
   };
 
   const handleArchive = async () => {
-    if (window.confirm('Are you sure you want to archive this client?')) {
+    console.log('handleArchive called for client:', id);
+    if (!id) {
+      console.error('No client ID available!');
+      setError('No client ID available');
+      return;
+    }
+
+    try {
+      // Try showMessageBox first, fallback to confirm if it fails
+      let result;
       try {
-        setError(null);
-        await archiveClient(id);
-        navigate('/');
-      } catch (err) {
-        setError('Failed to archive client. Please try again.');
-        console.error(err);
+        console.log('Attempting to show message box...');
+        result = await Promise.race([
+          showMessageBox(
+            'Archive Client',
+            'Are you sure you want to archive this client?',
+            'YES_NO',
+            'QUESTION'
+          ),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Message box timeout')), 5000)
+          )
+        ]);
+        console.log('Archive confirmation result from showMessageBox:', result);
+      } catch (msgBoxError) {
+        console.error('showMessageBox error, using fallback:', msgBoxError);
+        // Fallback to browser confirm
+        result = window.confirm('Are you sure you want to archive this client?') ? 'YES' : 'NO';
+        console.log('Archive confirmation result from fallback:', result);
       }
+
+      if (result !== 'YES') {
+        console.log('Archive cancelled by user');
+        return;
+      }
+      setError(null);
+      console.log('Calling archiveClient API with ID:', id);
+      const response = await archiveClient(id);
+      console.log('Archive API response:', response);
+      console.log('Archive successful, navigating...');
+      navigate('/');
+    } catch (err) {
+      console.error('Archive error:', err);
+      console.error('Archive error stack:', err.stack);
+      console.error('Archive error details:', {
+        message: err.message,
+        name: err.name,
+        response: err.response
+      });
+      setError(`Failed to archive client: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -156,15 +223,56 @@ function ClientDetail() {
   };
 
   const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this client? This action cannot be undone and will delete all associated data (notes, reminders, milestones, resources, contacts, SOWs).')) {
+    console.log('handleDelete called for client:', id);
+    if (!id) {
+      console.error('No client ID available!');
+      setError('No client ID available');
+      return;
+    }
+
+    try {
+      // Try showMessageBox first, fallback to confirm if it fails
+      let result;
       try {
-        setError(null);
-        await deleteClient(id);
-        navigate('/');
-      } catch (err) {
-        setError('Failed to delete client. Please try again.');
-        console.error(err);
+        console.log('Attempting to show message box...');
+        result = await Promise.race([
+          showMessageBox(
+            'Delete Client',
+            'Are you sure you want to delete this client? This action cannot be undone and will delete all associated data (notes, reminders, milestones, resources, contacts, SOWs).',
+            'YES_NO',
+            'WARNING'
+          ),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Message box timeout')), 5000)
+          )
+        ]);
+        console.log('Delete confirmation result from showMessageBox:', result);
+      } catch (msgBoxError) {
+        console.error('showMessageBox error, using fallback:', msgBoxError);
+        // Fallback to browser confirm
+        result = window.confirm('Are you sure you want to delete this client? This action cannot be undone and will delete all associated data (notes, reminders, milestones, resources, contacts, SOWs).') ? 'YES' : 'NO';
+        console.log('Delete confirmation result from fallback:', result);
       }
+
+      if (result !== 'YES') {
+        console.log('Delete cancelled by user');
+        return;
+      }
+      setError(null);
+      console.log('Calling deleteClient API with ID:', id);
+      const response = await deleteClient(id);
+      console.log('Delete API response:', response);
+      console.log('Delete successful, navigating...');
+      navigate('/');
+    } catch (err) {
+      console.error('Delete error:', err);
+      console.error('Delete error stack:', err.stack);
+      console.error('Delete error details:', {
+        message: err.message,
+        name: err.name,
+        response: err.response
+      });
+      setError(`Failed to delete client: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -671,7 +779,25 @@ function ClientDetail() {
         </button>
         <div className="client-detail-actions">
           {client.status === 'active' && (
-            <button onClick={handleArchive} className="btn btn-secondary">
+            <button
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('=== ARCHIVE BUTTON CLICKED ===');
+                console.log('Client ID:', id);
+                console.log('Client object:', client);
+                alert('Archive button was clicked! Check console for details.');
+                try {
+                  await handleArchive();
+                } catch (err) {
+                  console.error('Error in Archive button onClick:', err);
+                  alert('Error: ' + err.message);
+                }
+              }}
+              className="btn btn-secondary"
+              type="button"
+              style={{ cursor: 'pointer', zIndex: 1000 }}
+            >
               Archive Client
             </button>
           )}
@@ -683,7 +809,25 @@ function ClientDetail() {
           <button onClick={handleEdit} className="btn btn-primary">
             Edit Client
           </button>
-          <button onClick={handleDelete} className="btn btn-danger">
+          <button
+            onClick={async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('=== DELETE BUTTON CLICKED ===');
+              console.log('Client ID:', id);
+              console.log('Client object:', client);
+              alert('Delete button was clicked! Check console for details.');
+              try {
+                await handleDelete();
+              } catch (err) {
+                console.error('Error in Delete button onClick:', err);
+                alert('Error: ' + err.message);
+              }
+            }}
+            className="btn btn-danger"
+            type="button"
+            style={{ cursor: 'pointer', zIndex: 1000 }}
+          >
             Delete Client
           </button>
         </div>

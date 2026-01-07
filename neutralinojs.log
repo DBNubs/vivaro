@@ -23,3 +23,12 @@ INFO 2026-01-07 16:00:35,671 Auth info was exported to ./.tmp/auth_info.json api
 INFO 2026-01-07 16:09:42,780 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
 INFO 2026-01-07 16:10:17,696 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
 INFO 2026-01-07 16:15:04,219 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
+INFO 2026-01-07 16:19:21,974 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
+INFO 2026-01-07 16:28:57,937 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
+INFO 2026-01-07 16:30:46,383 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
+INFO 2026-01-07 16:32:45,563 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
+INFO 2026-01-07 16:34:47,343 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
+ERROR 2026-01-07 16:35:24,784 NE_RS_UNBLDRE: Unable to load application resource file /resources/client/1766006737227/index.html api/debug/debug.cpp:20 dbnubs@unknown-host
+ERROR 2026-01-07 16:35:29,461 NE_RS_UNBLDRE: Unable to load application resource file /resources/client/1766006737227/index.html api/debug/debug.cpp:20 dbnubs@unknown-host
+INFO 2026-01-07 16:35:39,355 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
+INFO 2026-01-07 16:36:14,353 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
