@@ -5,6 +5,32 @@ import { getClients, createClient, updateClient, archiveClient, unarchiveClient,
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 
+// Helper function to show native message box (same as in App.js)
+async function showMessageBox(title, content, choice = 'OK', icon = 'INFO') {
+  if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.os && window.Neutralino.os.showMessageBox) {
+    try {
+      return await window.Neutralino.os.showMessageBox(title, content, choice, icon);
+    } catch (error) {
+      console.error('Error showing native message box:', error);
+      // Fallback to browser alert
+      if (choice === 'OK') {
+        alert(`${title}\n\n${content}`);
+        return 'OK';
+      } else {
+        return window.confirm(`${title}\n\n${content}`) ? 'YES' : 'NO';
+      }
+    }
+  } else {
+    // Fallback to browser alert/confirm
+    if (choice === 'OK') {
+      alert(`${title}\n\n${content}`);
+      return 'OK';
+    } else {
+      return window.confirm(`${title}\n\n${content}`) ? 'YES' : 'NO';
+    }
+  }
+}
+
 function Dashboard() {
   const navigate = useNavigate();
   const [clients, setClients] = useState([]);
@@ -71,15 +97,39 @@ function Dashboard() {
   };
 
   const handleArchiveClient = async (clientId) => {
-    if (window.confirm('Are you sure you want to archive this client?')) {
+    console.log('handleArchiveClient called for client:', clientId);
+    try {
+      // Try showMessageBox first, fallback to confirm if it fails
+      let result;
       try {
-        setError(null);
-        await archiveClient(clientId);
-        await loadClients();
-      } catch (err) {
-        setError('Failed to archive client. Please try again.');
-        console.error(err);
+        result = await showMessageBox(
+          'Archive Client',
+          'Are you sure you want to archive this client?',
+          'YES_NO',
+          'QUESTION'
+        );
+        console.log('Archive confirmation result from showMessageBox:', result);
+      } catch (msgBoxError) {
+        console.error('showMessageBox error, using fallback:', msgBoxError);
+        // Fallback to browser confirm
+        result = window.confirm('Are you sure you want to archive this client?') ? 'YES' : 'NO';
+        console.log('Archive confirmation result from fallback:', result);
       }
+
+      if (result !== 'YES') {
+        console.log('Archive cancelled by user');
+        return;
+      }
+      setError(null);
+      console.log('Calling archiveClient API...');
+      const response = await archiveClient(clientId);
+      console.log('Archive API response:', response);
+      console.log('Archive successful, reloading clients...');
+      await loadClients();
+    } catch (err) {
+      console.error('Archive error:', err);
+      console.error('Archive error stack:', err.stack);
+      setError(`Failed to archive client: ${err.message || 'Unknown error'}`);
     }
   };
 

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Button Test</title>
+</head>
+<body>
+    <h1>Button Click Test</h1>
+    <button id="test-btn" onclick="console.log('Button clicked!'); alert('Button works!');">Test Button</button>
+    <script>
+        document.getElementById('test-btn').addEventListener('click', function(e) {
+            console.log('Event listener fired');
+        });
+    </script>
+</body>
+</html>

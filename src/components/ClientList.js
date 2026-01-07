@@ -121,11 +121,18 @@ const ClientList = ({ clients, onEdit, onView, onArchive, onUnarchive, showArchi
                       </button>
                       <button
                         onClick={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
-                          onArchive(client.id);
+                          console.log('Archive button clicked in ClientList for client:', client.id);
+                          if (onArchive) {
+                            onArchive(client.id);
+                          } else {
+                            console.error('onArchive handler is not defined!');
+                          }
                         }}
                         className="btn-icon btn-archive"
                         title="Archive client"
+                        type="button"
                       >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M2.66667 4.00004H13.3333M2.66667 4.00004L2.66667 13.3334C2.66667 13.687 2.80714 14.0262 3.05719 14.2762C3.30724 14.5263 3.64638 14.6667 4.00001 14.6667H12C12.3536 14.6667 12.6928 14.5263 12.9428 14.2762C13.1929 14.0262 13.3333 13.687 13.3333 13.3334V4.00004M2.66667 4.00004L4.00001 1.33337H12L13.3333 4.00004M6.66667 7.33337H9.33334" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
