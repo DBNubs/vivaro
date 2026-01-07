@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 import Dashboard from './pages/Dashboard';
 import ClientDetail from './pages/ClientDetail';
+import UpdateProgress from './components/UpdateProgress';
 
 // Helper function to show native message box
 async function showMessageBox(title, content, choice = 'OK', icon = 'INFO') {
@@ -30,131 +31,207 @@ async function showMessageBox(title, content, choice = 'OK', icon = 'INFO') {
   }
 }
 
-// Function to check for updates
-async function checkForUpdates() {
-  console.log('checkForUpdates function called');
-  try {
-    // Show checking message
-    const checkingMsg = 'Checking for updates...';
-    console.log('Showing checking message');
-    await showMessageBox('Checking for Updates', checkingMsg, 'OK', 'INFO');
-
-    console.log('Fetching from http://localhost:3001/api/updates/check');
-    const response = await fetch('http://localhost:3001/api/updates/check');
-
-    console.log('Response status:', response.status);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log('Update check response:', data);
-
-    // Check if there was an error checking for updates
-    if (data.error) {
-      await showMessageBox(
-        data.error,
-        `${data.message || ''}\n\nCurrent version: ${data.currentVersion}`,
-        'OK',
-        'WARNING'
-      );
-      return;
-    }
-
-    // Check if up to date
-    if (data.isUpToDate === true) {
-      console.log('Version is up to date, showing message');
-      await showMessageBox(
-        'No Updates Available',
-        `You are running version ${data.currentVersion}, which is the latest version.`,
-        'OK',
-        'INFO'
-      );
-    } else if (data.latestVersion) {
-      // Update available
-      console.log('Update available, showing prompt');
-      const updateMessage = `Update available!\n\nCurrent version: ${data.currentVersion}\nLatest version: ${data.latestVersion}\n\nWould you like to update now?`;
-      const result = await showMessageBox('Update Available', updateMessage, 'YES_NO', 'QUESTION');
-
-      if (result === 'YES') {
-        await performUpdate();
-      }
-    } else {
-      // Fallback - shouldn't happen but just in case
-      console.log('Unexpected response format');
-      await showMessageBox(
-        'Update Check',
-        `Unable to determine update status.\n\nCurrent version: ${data.currentVersion || 'unknown'}`,
-        'OK',
-        'WARNING'
-      );
-    }
-  } catch (error) {
-    console.error('Error checking for updates:', error);
-    await showMessageBox(
-      'Update Check Failed',
-      `Failed to check for updates: ${error.message}\n\nPlease check your internet connection and try again.`,
-      'OK',
-      'ERROR'
-    );
-  }
-}
-
-// Function to perform the update
-async function performUpdate() {
-  try {
-    const result = await showMessageBox(
-      'Confirm Update',
-      'This will download and install the latest version.\n\nThe application will need to be restarted after the update completes.\n\nDo you want to continue?',
-      'YES_NO',
-      'QUESTION'
-    );
-
-    if (result !== 'YES') {
-      return;
-    }
-
-    await showMessageBox(
-      'Update Started',
-      'Update started. This may take a few minutes. Please do not close the application.\n\nYou will be notified when the update is complete.',
-      'OK',
-      'INFO'
-    );
-
-    const response = await fetch('http://localhost:3001/api/updates/perform', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    await response.json();
-
-    // The update runs in the background, so we'll show a message
-    // In a real implementation, you might want to poll for status or use websockets
-    await showMessageBox(
-      'Update In Progress',
-      'Update process has started.\n\nThe update is running in the background. Please wait a few minutes for it to complete.\n\nYou will need to restart the application after the update finishes to use the new version.',
-      'OK',
-      'INFO'
-    );
-
-  } catch (error) {
-    console.error('Error performing update:', error);
-    await showMessageBox(
-      'Update Failed',
-      `Failed to start update: ${error.message}\n\nPlease try again later.`,
-      'OK',
-      'ERROR'
-    );
-  }
-}
-
 function App() {
+  const [updateState, setUpdateState] = useState({
+    isOpen: false,
+    progress: 0,
+    status: 'idle',
+    message: '',
+    error: null
+  });
+
+  // Store polling interval reference for cleanup
+  const pollingIntervalRef = useRef(null);
+
+  // Function to perform the update
+  const performUpdate = useCallback(async () => {
+    try {
+      const result = await showMessageBox(
+        'Confirm Update',
+        'This will download and install the latest version.\n\nThe application will need to be restarted after the update completes.\n\nDo you want to continue?',
+        'YES_NO',
+        'QUESTION'
+      );
+
+      if (result !== 'YES') {
+        return;
+      }
+
+      // First, verify the status endpoint is available
+      try {
+        const statusCheck = await fetch('http://localhost:3001/api/updates/status');
+        if (!statusCheck.ok) {
+          if (statusCheck.status === 404) {
+            setUpdateState({
+              isOpen: true,
+              progress: 0,
+              status: 'error',
+              message: 'Update failed',
+              error: 'Update status endpoint not found. Please restart the server to enable progress tracking, then try again.'
+            });
+            return;
+          }
+        }
+      } catch (statusError) {
+        console.warn('Could not verify status endpoint:', statusError);
+        // Continue anyway - might be a temporary network issue
+      }
+
+      // Show progress dialog
+      setUpdateState({
+        isOpen: true,
+        progress: 0,
+        status: 'in_progress',
+        message: 'Starting update...',
+        error: null
+      });
+
+      const response = await fetch('http://localhost:3001/api/updates/perform', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      await response.json();
+
+      // Start polling for status
+      let pollAttempts = 0;
+      const maxPollAttempts = 60; // 30 seconds max (60 * 500ms)
+      const pollInterval = setInterval(async () => {
+        pollAttempts++;
+        try {
+          const statusResponse = await fetch('http://localhost:3001/api/updates/status');
+          if (!statusResponse.ok) {
+            // If we get a 404, the endpoint might not be available
+            // This could happen if the server hasn't been restarted with the new endpoint
+            if (statusResponse.status === 404) {
+              if (pollAttempts >= maxPollAttempts) {
+                clearInterval(pollInterval);
+                pollingIntervalRef.current = null;
+                setUpdateState(prev => ({
+                  ...prev,
+                  status: 'error',
+                  error: 'Update status endpoint not found. Please restart the server and try again.'
+                }));
+              }
+              return;
+            }
+            throw new Error(`HTTP error! status: ${statusResponse.status}`);
+          }
+          const statusData = await statusResponse.json();
+
+          setUpdateState(prev => ({
+            ...prev,
+            progress: statusData.progress || 0,
+            status: statusData.status || 'in_progress',
+            message: statusData.message || 'Updating...',
+            error: statusData.error || null
+          }));
+
+          // Stop polling if update is complete or failed
+          if (statusData.status === 'completed' || statusData.status === 'error') {
+            clearInterval(pollInterval);
+            pollingIntervalRef.current = null;
+          }
+        } catch (error) {
+          console.error('Error polling update status:', error);
+          // Only fail after multiple attempts or if it's not a 404
+          if (!error.message.includes('404') || pollAttempts >= maxPollAttempts) {
+            clearInterval(pollInterval);
+            pollingIntervalRef.current = null;
+            setUpdateState(prev => ({
+              ...prev,
+              status: 'error',
+              error: `Failed to check update status: ${error.message}`
+            }));
+          }
+        }
+      }, 500); // Poll every 500ms
+
+      pollingIntervalRef.current = pollInterval;
+
+    } catch (error) {
+      console.error('Error performing update:', error);
+      setUpdateState({
+        isOpen: true,
+        progress: 0,
+        status: 'error',
+        message: 'Update failed',
+        error: `Failed to start update: ${error.message}\n\nPlease try again later.`
+      });
+    }
+  }, []);
+
+  // Function to check for updates
+  const checkForUpdates = useCallback(async () => {
+    console.log('checkForUpdates function called');
+    try {
+      console.log('Fetching from http://localhost:3001/api/updates/check');
+      const response = await fetch('http://localhost:3001/api/updates/check');
+
+      console.log('Response status:', response.status);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Update check response:', data);
+
+      // Check if there was an error checking for updates
+      if (data.error) {
+        await showMessageBox(
+          data.error,
+          `${data.message || ''}\n\nCurrent version: ${data.currentVersion}`,
+          'OK',
+          'WARNING'
+        );
+        return;
+      }
+
+      // Check if up to date
+      if (data.isUpToDate === true) {
+        console.log('Version is up to date, showing message');
+        await showMessageBox(
+          'No Updates Available',
+          `You are running version ${data.currentVersion}, which is the latest version.`,
+          'OK',
+          'INFO'
+        );
+      } else if (data.latestVersion) {
+        // Update available
+        console.log('Update available, showing prompt');
+        const updateMessage = `Update available!\n\nCurrent version: ${data.currentVersion}\nLatest version: ${data.latestVersion}\n\nWould you like to update now?`;
+        const result = await showMessageBox('Update Available', updateMessage, 'YES_NO', 'QUESTION');
+
+        if (result === 'YES') {
+          await performUpdate();
+        }
+      } else {
+        // Fallback - shouldn't happen but just in case
+        console.log('Unexpected response format');
+        await showMessageBox(
+          'Update Check',
+          `Unable to determine update status.\n\nCurrent version: ${data.currentVersion || 'unknown'}`,
+          'OK',
+          'WARNING'
+        );
+      }
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+      await showMessageBox(
+        'Update Check Failed',
+        `Failed to check for updates: ${error.message}\n\nPlease check your internet connection and try again.`,
+        'OK',
+        'ERROR'
+      );
+    }
+  }, [performUpdate]);
+
   useEffect(() => {
     let isNeutralinoReady = false;
     let checkInterval = null;
@@ -381,11 +458,15 @@ function App() {
       if (checkInterval) {
         clearInterval(checkInterval);
       }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
       document.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('keydown', windowKeyDown, true);
       document.body?.removeEventListener('keydown', bodyKeyDown, true);
     };
-  }, []);
+  }, [checkForUpdates]);
 
   return (
     <Router>
@@ -410,6 +491,21 @@ function App() {
             <Route path="/client/:id" element={<ClientDetail />} />
           </Routes>
         </main>
+
+        <UpdateProgress
+          isOpen={updateState.isOpen}
+          progress={updateState.progress}
+          status={updateState.status}
+          message={updateState.message}
+          error={updateState.error}
+          onClose={() => setUpdateState({
+            isOpen: false,
+            progress: 0,
+            status: 'idle',
+            message: '',
+            error: null
+          })}
+        />
       </div>
     </Router>
   );

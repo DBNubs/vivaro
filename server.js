@@ -85,6 +85,14 @@ const PORT = process.env.PORT || 3001;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const OLD_DATA_FILE = path.join(DATA_DIR, 'clients.json');
 
+// Update progress tracking
+let updateProgress = {
+  status: 'idle', // 'idle', 'in_progress', 'completed', 'error'
+  progress: 0,
+  message: '',
+  error: null
+};
+
 // Multer will be initialized after helper functions are defined
 let upload;
 
@@ -1281,10 +1289,17 @@ async function getCurrentVersion() {
         cwd: __dirname,
         shell: '/bin/bash'
       });
-      const currentTag = tag.trim();
+      let currentTag = tag.trim();
       if (currentTag && currentTag !== '') {
         // Remove 'v' prefix if present for consistency
-        return currentTag.replace(/^v/, '');
+        currentTag = currentTag.replace(/^v/, '');
+
+        // Strip git commit hash suffix (e.g., "-2-g18b1ded" from "release--2026-01-07.01-2-g18b1ded")
+        // This pattern matches: -<number>-g<hash> at the end of the string
+        // We want to keep just the tag part (e.g., "release--2026-01-07.01")
+        currentTag = currentTag.replace(/-\d+-g[a-f0-9]+$/i, '');
+
+        return currentTag;
       }
     } catch (gitError) {
       // Git command failed, fall through to package.json
@@ -1417,9 +1432,15 @@ app.get('/api/updates/check', async (req, res) => {
     try {
       const latestRelease = await getLatestGitHubRelease();
 
-      // Normalize versions by removing 'v' prefix for comparison
-      const normalizedCurrent = currentVersion.replace(/^v/, '').trim();
-      const normalizedLatest = latestRelease.tag.replace(/^v/, '').trim();
+      // Normalize versions by removing 'v' prefix and git commit hash for comparison
+      const normalizeVersion = (version) => {
+        return version
+          .replace(/^v/, '') // Remove 'v' prefix
+          .replace(/-\d+-g[a-f0-9]+$/i, '') // Strip git commit hash suffix (e.g., "-2-g18b1ded")
+          .trim();
+      };
+      const normalizedCurrent = normalizeVersion(currentVersion);
+      const normalizedLatest = normalizeVersion(latestRelease.tag);
       const isUpToDate = normalizedCurrent === normalizedLatest;
 
       res.json({
@@ -1454,9 +1475,48 @@ app.get('/api/updates/check', async (req, res) => {
   }
 });
 
+// GET /api/updates/status - Get update progress status
+console.log('Registering route: GET /api/updates/status');
+app.get('/api/updates/status', (req, res) => {
+  console.log('GET /api/updates/status - Request received');
+  console.log('Request path:', req.path);
+  console.log('Request method:', req.method);
+  try {
+    // Ensure updateProgress is initialized
+    if (!updateProgress) {
+      updateProgress = {
+        status: 'idle',
+        progress: 0,
+        message: '',
+        error: null
+      };
+    }
+    // Add CORS headers if needed
+    res.setHeader('Content-Type', 'application/json');
+    console.log('GET /api/updates/status - Returning:', updateProgress);
+    res.json(updateProgress);
+  } catch (error) {
+    console.error('Error getting update status:', error);
+    res.status(500).json({
+      status: 'error',
+      progress: 0,
+      message: 'Error retrieving update status',
+      error: error.message
+    });
+  }
+});
+
 // POST /api/updates/perform - Perform the update
 app.post('/api/updates/perform', async (req, res) => {
   try {
+    // Reset progress state
+    updateProgress = {
+      status: 'in_progress',
+      progress: 0,
+      message: 'Starting update...',
+      error: null
+    };
+
     // Start the update process asynchronously
     res.json({
       message: 'Update started',
@@ -1467,6 +1527,8 @@ app.post('/api/updates/perform', async (req, res) => {
     (async () => {
       try {
         // Step 1: Pull latest code
+        updateProgress.progress = 10;
+        updateProgress.message = 'Pulling latest code from GitHub...';
         console.log('Pulling latest code from GitHub...');
         try {
           await execAsync('git pull origin main', {
@@ -1484,36 +1546,55 @@ app.post('/api/updates/perform', async (req, res) => {
             throw new Error(`Git pull failed: ${gitError.message}. Please ensure you have a git repository and are connected to the remote.`);
           }
         }
+        updateProgress.progress = 20;
+        updateProgress.message = 'Code pulled successfully';
 
         // Step 2: Install dependencies (in case package.json changed)
+        updateProgress.progress = 30;
+        updateProgress.message = 'Installing dependencies...';
         console.log('Installing dependencies...');
         await execAsync('npm install', {
           cwd: __dirname,
           maxBuffer: 10 * 1024 * 1024
         });
+        updateProgress.progress = 40;
+        updateProgress.message = 'Dependencies installed';
 
         // Step 3: Rebuild React app
+        updateProgress.progress = 50;
+        updateProgress.message = 'Rebuilding React app...';
         console.log('Rebuilding React app...');
         await execAsync('npm run build', {
           cwd: __dirname,
           maxBuffer: 10 * 1024 * 1024
         });
+        updateProgress.progress = 60;
+        updateProgress.message = 'React app rebuilt';
 
         // Step 4: Copy neutralino.js and update resources
+        updateProgress.progress = 70;
+        updateProgress.message = 'Updating Neutralino resources...';
         console.log('Updating Neutralino resources...');
         await execAsync('cp neutralino.js build/ && rm -rf resources && cp -r build resources', {
           cwd: __dirname,
           shell: '/bin/bash',
           maxBuffer: 10 * 1024 * 1024
         });
+        updateProgress.progress = 80;
+        updateProgress.message = 'Resources updated';
 
         // Step 5: Rebuild Neutralino app
+        updateProgress.progress = 90;
+        updateProgress.message = 'Rebuilding Neutralino app...';
         console.log('Rebuilding Neutralino app...');
         await execAsync('npx @neutralinojs/neu build', {
           cwd: __dirname,
           maxBuffer: 10 * 1024 * 1024
         });
 
+        updateProgress.progress = 100;
+        updateProgress.status = 'completed';
+        updateProgress.message = 'Update completed successfully!';
         console.log('Update completed successfully!');
         console.log('Please restart the application to use the new version.');
 
@@ -1526,11 +1607,18 @@ app.post('/api/updates/perform', async (req, res) => {
         console.error('Error details:', error.message);
         if (error.stdout) console.error('Command output:', error.stdout);
         if (error.stderr) console.error('Command errors:', error.stderr);
+
+        updateProgress.status = 'error';
+        updateProgress.error = error.message || 'Update failed. Please check the logs and try again.';
+        updateProgress.message = 'Update failed';
       }
     })();
 
   } catch (error) {
     console.error('Error starting update:', error);
+    updateProgress.status = 'error';
+    updateProgress.error = error.message;
+    updateProgress.message = 'Failed to start update';
     res.status(500).json({
       error: 'Failed to start update',
       message: error.message
@@ -1543,9 +1631,11 @@ app.post('/api/updates/perform', async (req, res) => {
 if (process.env.NEUTRALINO || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
   const buildPath = path.join(__dirname, 'build');
   const indexHtmlPath = path.join(buildPath, 'index.html');
+  console.log('Registering catch-all route: GET *');
   app.get('*', (req, res) => {
-    // Don't serve HTML for API routes
+    // Don't serve HTML for API routes that weren't matched by specific routes
     if (req.path.startsWith('/api/')) {
+      console.log('Catch-all route: API route not found:', req.path);
       return res.status(404).json({ error: 'Not found' });
     }
     // Check if index.html exists before trying to serve it
