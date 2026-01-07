@@ -32,3 +32,4 @@ ERROR 2026-01-07 16:35:24,784 NE_RS_UNBLDRE: Unable to load application resource
 ERROR 2026-01-07 16:35:29,461 NE_RS_UNBLDRE: Unable to load application resource file /resources/client/1766006737227/index.html api/debug/debug.cpp:20 dbnubs@unknown-host
 INFO 2026-01-07 16:35:39,355 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
 INFO 2026-01-07 16:36:14,353 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host
+INFO 2026-01-07 16:47:40,379 Auth info was exported to ./.tmp/auth_info.json api/debug/debug.cpp:17 dbnubs@unknown-host

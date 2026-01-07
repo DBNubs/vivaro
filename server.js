@@ -1526,30 +1526,94 @@ app.post('/api/updates/perform', async (req, res) => {
     // Perform update in background
     (async () => {
       try {
-        // Step 1: Pull latest code
-        updateProgress.progress = 10;
-        updateProgress.message = 'Pulling latest code from GitHub...';
-        console.log('Pulling latest code from GitHub...');
+        // Step 1: Get the latest tag from GitHub
+        updateProgress.progress = 5;
+        updateProgress.message = 'Checking for latest version...';
+        console.log('Checking for latest version...');
+        let latestRelease;
         try {
-          await execAsync('git pull origin main', {
-            cwd: __dirname,
-            maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large outputs
-          });
-        } catch (gitError) {
-          // Try with different branch names
+          latestRelease = await getLatestGitHubRelease();
+        } catch (githubError) {
+          // If GitHub API fails, try to get latest tag from git
+          console.warn('GitHub API failed, trying to get latest tag from git:', githubError.message);
           try {
-            await execAsync('git pull origin master', {
+            // Fetch tags from remote
+            await execAsync('git fetch --tags', {
+              cwd: __dirname,
+              maxBuffer: 10 * 1024 * 1024
+            });
+            // Get the latest tag
+            const { stdout: latestTag } = await execAsync('git describe --tags --abbrev=0', {
+              cwd: __dirname,
+              maxBuffer: 10 * 1024 * 1024
+            });
+            latestRelease = {
+              tag: latestTag.trim()
+            };
+          } catch (gitTagError) {
+            throw new Error(`Failed to get latest version: ${githubError.message}. Please ensure you have a git repository and are connected to the remote.`);
+          }
+        }
+
+        const targetTag = latestRelease.tag;
+        console.log(`Target tag for update: ${targetTag}`);
+
+        // Step 2: Fetch tags and checkout the specific tag
+        updateProgress.progress = 10;
+        updateProgress.message = `Fetching tags and checking out ${targetTag}...`;
+        console.log(`Fetching tags and checking out ${targetTag}...`);
+
+        // First, fetch all tags from remote
+        try {
+          await execAsync('git fetch --tags origin', {
+            cwd: __dirname,
+            maxBuffer: 10 * 1024 * 1024
+          });
+        } catch (fetchError) {
+          // Try without origin
+          try {
+            await execAsync('git fetch --tags', {
               cwd: __dirname,
               maxBuffer: 10 * 1024 * 1024
             });
           } catch (e) {
-            throw new Error(`Git pull failed: ${gitError.message}. Please ensure you have a git repository and are connected to the remote.`);
+            console.warn('Could not fetch tags, continuing anyway:', e.message);
           }
         }
-        updateProgress.progress = 20;
-        updateProgress.message = 'Code pulled successfully';
 
-        // Step 2: Install dependencies (in case package.json changed)
+        // Checkout the specific tag
+        try {
+          await execAsync(`git checkout ${targetTag}`, {
+            cwd: __dirname,
+            maxBuffer: 10 * 1024 * 1024
+          });
+        } catch (checkoutError) {
+          // If checkout fails, try with 'v' prefix or without
+          try {
+            const tagWithV = targetTag.startsWith('v') ? targetTag : `v${targetTag}`;
+            const tagWithoutV = targetTag.startsWith('v') ? targetTag.substring(1) : targetTag;
+
+            try {
+              await execAsync(`git checkout ${tagWithV}`, {
+                cwd: __dirname,
+                maxBuffer: 10 * 1024 * 1024
+              });
+            } catch (e1) {
+              await execAsync(`git checkout ${tagWithoutV}`, {
+                cwd: __dirname,
+                maxBuffer: 10 * 1024 * 1024
+              });
+            }
+          } catch (e2) {
+            throw new Error(`Failed to checkout tag ${targetTag}: ${checkoutError.message}. Please ensure the tag exists in the repository.`);
+          }
+        }
+
+        updateProgress.progress = 20;
+        updateProgress.message = `Successfully checked out ${targetTag}`;
+        console.log(`Successfully checked out ${targetTag}`);
+
+        // Step 3: Install dependencies (in case package.json changed)
         updateProgress.progress = 30;
         updateProgress.message = 'Installing dependencies...';
         console.log('Installing dependencies...');
@@ -1560,7 +1624,7 @@ app.post('/api/updates/perform', async (req, res) => {
         updateProgress.progress = 40;
         updateProgress.message = 'Dependencies installed';
 
-        // Step 3: Rebuild React app
+        // Step 4: Rebuild React app
         updateProgress.progress = 50;
         updateProgress.message = 'Rebuilding React app...';
         console.log('Rebuilding React app...');
@@ -1571,7 +1635,7 @@ app.post('/api/updates/perform', async (req, res) => {
         updateProgress.progress = 60;
         updateProgress.message = 'React app rebuilt';
 
-        // Step 4: Copy neutralino.js and update resources
+        // Step 5: Copy neutralino.js and update resources
         updateProgress.progress = 70;
         updateProgress.message = 'Updating Neutralino resources...';
         console.log('Updating Neutralino resources...');
@@ -1583,7 +1647,7 @@ app.post('/api/updates/perform', async (req, res) => {
         updateProgress.progress = 80;
         updateProgress.message = 'Resources updated';
 
-        // Step 5: Rebuild Neutralino app
+        // Step 6: Rebuild Neutralino app
         updateProgress.progress = 90;
         updateProgress.message = 'Rebuilding Neutralino app...';
         console.log('Rebuilding Neutralino app...');
@@ -1594,9 +1658,17 @@ app.post('/api/updates/perform', async (req, res) => {
 
         updateProgress.progress = 100;
         updateProgress.status = 'completed';
-        updateProgress.message = 'Update completed successfully!';
-        console.log('Update completed successfully!');
+        updateProgress.message = `Update completed successfully! Current version: ${targetTag}`;
+        console.log(`Update completed successfully! Current version: ${targetTag}`);
         console.log('Please restart the application to use the new version.');
+
+        // Verify the current version after update
+        try {
+          const newCurrentVersion = await getCurrentVersion();
+          console.log(`Verified current version after update: ${newCurrentVersion}`);
+        } catch (versionError) {
+          console.warn('Could not verify version after update:', versionError.message);
+        }
 
         // Note: We can't automatically restart the app from here since we're running inside it
         // The user will need to manually restart
