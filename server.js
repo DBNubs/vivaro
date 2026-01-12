@@ -1616,45 +1616,443 @@ app.post('/api/updates/perform', async (req, res) => {
         // Step 3: Install dependencies (in case package.json changed)
         updateProgress.progress = 30;
         updateProgress.message = 'Installing dependencies...';
-        console.log('Installing dependencies...');
-        await execAsync('npm install', {
-          cwd: __dirname,
-          maxBuffer: 10 * 1024 * 1024
-        });
+        console.log('=== INSTALLING DEPENDENCIES ===');
+        console.log('Current __dirname:', __dirname);
+        console.log('Current process.cwd():', process.cwd());
+        console.log('process.execPath:', process.execPath);
+        console.log('process.env.PATH (original):', process.env.PATH);
+        console.log('process.env.HOME:', process.env.HOME);
+        console.log('process.env.NEUTRALINO:', process.env.NEUTRALINO);
+
+        // When running from app bundle, process.execPath points to the app binary, not node
+        // We need to find the actual node executable
+        // Declare these outside try block so they're available in catch block
+        let nodeDir, npmPath, npmCmd, npmEnv;
+
+        // Try to find node executable
+        let nodePath = null;
+
+        // Method 1: Check if execPath is actually node (development)
+        if (process.execPath.includes('node') && (process.execPath.endsWith('node') || process.execPath.endsWith('node.exe'))) {
+          nodePath = process.execPath;
+          console.log('✓ process.execPath is node:', nodePath);
+        } else {
+          console.log('process.execPath is not node, searching for node...');
+
+          // Method 2: Try to find node using which (with expanded PATH that includes common node locations)
+          try {
+            const homeDir = process.env.HOME || os.homedir();
+            const basePath = process.env.PATH || '/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin';
+            // Build expanded PATH with common node locations
+            const nvmBaseDir = path.join(homeDir, '.nvm/versions/node');
+            let expandedPath = basePath;
+
+            // Add NVM paths if they exist
+            if (fsSync.existsSync(nvmBaseDir)) {
+              try {
+                const versions = fsSync.readdirSync(nvmBaseDir);
+                // Add versions in reverse order (newest first)
+                const versionPaths = versions.map(v => path.join(nvmBaseDir, v, 'bin')).reverse();
+                expandedPath = versionPaths.join(':') + ':' + expandedPath;
+              } catch (e) {
+                // Ignore readdir errors
+              }
+            }
+
+            // Add common node locations
+            expandedPath = '/usr/local/bin:/opt/homebrew/bin:' + expandedPath;
+
+            console.log('Searching for node with expanded PATH:', expandedPath);
+            const { stdout } = await execAsync('which node', {
+              env: { ...process.env, PATH: expandedPath },
+              shell: '/bin/bash'
+            });
+            const foundNode = stdout.trim();
+            if (foundNode && fsSync.existsSync(foundNode)) {
+              nodePath = foundNode;
+              console.log('✓ Found node via which:', nodePath);
+            } else {
+              console.log('which node returned empty or invalid path');
+            }
+          } catch (whichError) {
+            console.log('which node failed:', whichError.message);
+            if (whichError.stderr) {
+              console.log('which node stderr:', whichError.stderr);
+            }
+          }
+
+          // Method 3: Check common node locations
+          if (!nodePath) {
+            const commonNodePaths = [
+              '/usr/local/bin/node',
+              '/opt/homebrew/bin/node',
+              path.join(process.env.HOME || os.homedir(), '.nvm/versions/node', process.version, 'bin/node')
+            ];
+
+            // Also check NVM versions directory
+            const nvmDir = path.join(process.env.HOME || os.homedir(), '.nvm/versions/node');
+            if (fsSync.existsSync(nvmDir)) {
+              try {
+                const versions = fsSync.readdirSync(nvmDir);
+                // Add current version first, then others
+                const currentVersionPath = path.join(nvmDir, process.version, 'bin/node');
+                if (fsSync.existsSync(currentVersionPath)) {
+                  commonNodePaths.unshift(currentVersionPath);
+                }
+                // Add a few other versions
+                for (const version of versions.slice(0, 3)) {
+                  const versionPath = path.join(nvmDir, version, 'bin/node');
+                  if (fsSync.existsSync(versionPath) && !commonNodePaths.includes(versionPath)) {
+                    commonNodePaths.push(versionPath);
+                  }
+                }
+              } catch (e) {
+                console.log('Error reading NVM versions:', e.message);
+              }
+            }
+
+            for (const testPath of commonNodePaths) {
+              if (fsSync.existsSync(testPath)) {
+                nodePath = testPath;
+                console.log('✓ Found node at common location:', nodePath);
+                break;
+              }
+            }
+          }
+        }
+
+        if (!nodePath) {
+          throw new Error('Could not find node executable. Please ensure Node.js is installed.');
+        }
+
+        nodeDir = path.dirname(nodePath);
+        npmPath = path.join(nodeDir, 'npm');
+
+        console.log('Node path:', nodePath);
+        console.log('Node directory:', nodeDir);
+        console.log('npm path (calculated):', npmPath);
+        console.log('npm exists:', fsSync.existsSync(npmPath));
+
+        if (!fsSync.existsSync(npmPath)) {
+          throw new Error(`npm not found at ${npmPath}. Please ensure npm is installed with Node.js.`);
+        }
+
+        // Build enhanced PATH with node directory first
+        const basePath = process.env.PATH || '/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin';
+        npmEnv = {
+          ...process.env,
+          PATH: `${nodeDir}:${basePath}`
+        };
+
+        console.log('Base PATH:', basePath);
+        console.log('Enhanced PATH:', npmEnv.PATH);
+
+        // Always use full path to npm
+        npmCmd = npmPath;
+        console.log('Using npm command (full path):', npmCmd);
+        console.log('Full command:', `${npmCmd} install`);
+        console.log('Working directory:', __dirname);
+        console.log('Shell:', '/bin/bash');
+
+        try {
+          await execAsync(`${npmCmd} install`, {
+            cwd: __dirname,
+            env: npmEnv,
+            maxBuffer: 10 * 1024 * 1024,
+            shell: '/bin/bash'
+          });
+          console.log('✓ npm install completed successfully');
+        } catch (npmError) {
+          console.error('=== NPM INSTALL ERROR ===');
+          console.error('Error message:', npmError.message);
+          console.error('Error code:', npmError.code);
+          console.error('Error stdout:', npmError.stdout || '(empty)');
+          console.error('Error stderr:', npmError.stderr || '(empty)');
+          console.error('Command that failed:', npmError.cmd || `${npmCmd} install`);
+          console.error('Environment PATH used:', npmEnv.PATH);
+          console.error('Node directory:', nodeDir);
+          console.error('npm path:', npmPath);
+          console.error('npm exists:', fsSync.existsSync(npmPath));
+
+          // Try to verify node is accessible
+          try {
+            const { exec } = require('child_process');
+            const { promisify } = require('util');
+            const testExec = promisify(exec);
+            const nodeTest = await testExec('node --version', { env: npmEnv, shell: '/bin/bash' });
+            console.error('Node test result:', nodeTest.stdout.trim());
+          } catch (nodeTestError) {
+            console.error('Node test failed:', nodeTestError.message);
+          }
+
+          // Try to verify npm is accessible
+          try {
+            const { exec } = require('child_process');
+            const { promisify } = require('util');
+            const testExec = promisify(exec);
+            const npmTest = await testExec(`${npmCmd} --version`, { env: npmEnv, shell: '/bin/bash' });
+            console.error('npm test result:', npmTest.stdout.trim());
+          } catch (npmTestError) {
+            console.error('npm test failed:', npmTestError.message);
+            console.error('npm test stderr:', npmTestError.stderr);
+          }
+
+          throw npmError;
+        }
         updateProgress.progress = 40;
         updateProgress.message = 'Dependencies installed';
 
         // Step 4: Rebuild React app
         updateProgress.progress = 50;
         updateProgress.message = 'Rebuilding React app...';
-        console.log('Rebuilding React app...');
-        await execAsync('npm run build', {
-          cwd: __dirname,
-          maxBuffer: 10 * 1024 * 1024
-        });
+        console.log('=== REBUILDING REACT APP ===');
+        console.log('Using npm command:', npmCmd);
+        console.log('Full command:', `${npmCmd} run build`);
+
+        try {
+          await execAsync(`${npmCmd} run build`, {
+            cwd: __dirname,
+            env: npmEnv,
+            maxBuffer: 10 * 1024 * 1024,
+            shell: '/bin/bash'
+          });
+          console.log('✓ npm run build completed successfully');
+        } catch (buildError) {
+          console.error('=== NPM RUN BUILD ERROR ===');
+          console.error('Error message:', buildError.message);
+          console.error('Error code:', buildError.code);
+          console.error('Error stdout:', buildError.stdout || '(empty)');
+          console.error('Error stderr:', buildError.stderr || '(empty)');
+          throw buildError;
+        }
         updateProgress.progress = 60;
         updateProgress.message = 'React app rebuilt';
+        console.log('✓ React app rebuilt');
 
         // Step 5: Copy neutralino.js and update resources
         updateProgress.progress = 70;
         updateProgress.message = 'Updating Neutralino resources...';
         console.log('Updating Neutralino resources...');
-        await execAsync('cp neutralino.js build/ && rm -rf resources && cp -r build resources', {
-          cwd: __dirname,
-          shell: '/bin/bash',
-          maxBuffer: 10 * 1024 * 1024
-        });
+        // Check if neutralino.js exists before copying
+        const neutralinoJsPath = path.join(__dirname, 'neutralino.js');
+        const buildNeutralinoJsPath = path.join(__dirname, 'build', 'neutralino.js');
+        if (fsSync.existsSync(neutralinoJsPath)) {
+          fsSync.copyFileSync(neutralinoJsPath, buildNeutralinoJsPath);
+          console.log('✓ Copied neutralino.js to build/');
+        } else {
+          console.log('⚠ Warning: neutralino.js not found, skipping copy');
+        }
+        // Clean up and copy resources
+        const resourcesPath = path.join(__dirname, 'resources');
+        if (fsSync.existsSync(resourcesPath)) {
+          fsSync.rmSync(resourcesPath, { recursive: true, force: true });
+        }
+        const buildPath = path.join(__dirname, 'build');
+        fsSync.cpSync(buildPath, resourcesPath, { recursive: true });
         updateProgress.progress = 80;
         updateProgress.message = 'Resources updated';
 
         // Step 6: Rebuild Neutralino app
         updateProgress.progress = 90;
         updateProgress.message = 'Rebuilding Neutralino app...';
-        console.log('Rebuilding Neutralino app...');
-        await execAsync('npx @neutralinojs/neu build', {
-          cwd: __dirname,
-          maxBuffer: 10 * 1024 * 1024
-        });
+        console.log('=== REBUILDING NEUTRALINO APP ===');
+        console.log('Using npx with enhanced PATH:', npmEnv.PATH);
+
+        // npx also needs node in PATH
+        try {
+          await execAsync('npx @neutralinojs/neu build', {
+            cwd: __dirname,
+            env: npmEnv,
+            maxBuffer: 10 * 1024 * 1024,
+            shell: '/bin/bash'
+          });
+          console.log('✓ npx @neutralinojs/neu build completed successfully');
+        } catch (npxError) {
+          console.error('=== NPX BUILD ERROR ===');
+          console.error('Error message:', npxError.message);
+          console.error('Error code:', npxError.code);
+          console.error('Error stdout:', npxError.stdout || '(empty)');
+          console.error('Error stderr:', npxError.stderr || '(empty)');
+          throw npxError;
+        }
+        updateProgress.progress = 95;
+        updateProgress.message = 'Neutralino app rebuilt';
+
+        // Step 7: Update the .app bundle with the new binary and resources
+        updateProgress.progress = 97;
+        updateProgress.message = 'Updating app bundle...';
+        console.log('Updating app bundle...');
+        console.log('Current __dirname:', __dirname);
+        console.log('Current process.cwd():', process.cwd());
+
+        // Find the .app bundle location
+        // When running from the app bundle, __dirname will be something like:
+        // /path/to/Vivaro.app/Contents/Resources
+        let appBundlePath = null;
+        let appResourcesPath = null;
+
+        // Method 1: Check if we're inside a .app bundle (most reliable)
+        if (__dirname.includes('.app/Contents/Resources')) {
+          const appMatch = __dirname.match(/(.*\.app)/);
+          if (appMatch) {
+            appBundlePath = appMatch[1];
+            appResourcesPath = path.join(appBundlePath, 'Contents/Resources');
+            console.log('✓ Found app bundle from __dirname:', appBundlePath);
+            console.log('  App resources path:', appResourcesPath);
+          }
+        }
+
+        // Method 2: Try to find it relative to __dirname
+        if (!appBundlePath || !fsSync.existsSync(appBundlePath)) {
+          // Try going up from __dirname to find .app
+          let currentPath = __dirname;
+          for (let i = 0; i < 5; i++) {
+            const testPath = path.join(currentPath, '..', '..', 'Vivaro.app');
+            if (fsSync.existsSync(testPath)) {
+              appBundlePath = testPath;
+              appResourcesPath = path.join(appBundlePath, 'Contents/Resources');
+              console.log(`✓ Found app bundle by going up ${i} levels:`, appBundlePath);
+              break;
+            }
+            currentPath = path.join(currentPath, '..');
+            if (!currentPath || currentPath === '/' || currentPath === path.dirname(currentPath)) {
+              break;
+            }
+          }
+        }
+
+        // Method 3: Try common locations
+        if (!appBundlePath || !fsSync.existsSync(appBundlePath)) {
+          const possibleAppPaths = [
+            '/Applications/Vivaro.app',
+            path.join(process.env.HOME || os.homedir(), 'Applications/Vivaro.app'),
+            path.join(__dirname, '../../Vivaro.app'),
+            path.join(__dirname, '../Vivaro.app'),
+            path.join(__dirname, '../../../Vivaro.app'),
+            path.join(__dirname, '../../../../Vivaro.app')
+          ];
+
+          for (const possiblePath of possibleAppPaths) {
+            if (fsSync.existsSync(possiblePath)) {
+              appBundlePath = possiblePath;
+              appResourcesPath = path.join(appBundlePath, 'Contents/Resources');
+              console.log('✓ Found app bundle in common location:', appBundlePath);
+              break;
+            }
+          }
+        }
+
+        if (appBundlePath && appResourcesPath && fsSync.existsSync(appBundlePath)) {
+          const distPath = path.join(__dirname, 'dist/vivaro');
+          console.log('Dist path:', distPath);
+          console.log('App resources path:', appResourcesPath);
+
+          // Copy the new binary
+          const binaryName = fsSync.existsSync(path.join(distPath, 'vivaro-mac_arm64'))
+            ? 'vivaro-mac_arm64'
+            : 'vivaro-mac_x64';
+          const binaryPath = path.join(distPath, binaryName);
+
+          if (fsSync.existsSync(binaryPath)) {
+            const destBinaryPath = path.join(appResourcesPath, binaryName);
+            console.log(`Copying binary from ${binaryPath} to ${destBinaryPath}`);
+            fsSync.copyFileSync(binaryPath, destBinaryPath);
+            fsSync.chmodSync(destBinaryPath, 0o755);
+            console.log(`✓ Copied new binary to app bundle: ${destBinaryPath}`);
+          } else {
+            console.warn(`Binary not found at: ${binaryPath}`);
+          }
+
+          // Copy resources.neu
+          const resourcesNeuPath = path.join(distPath, 'resources.neu');
+          if (fsSync.existsSync(resourcesNeuPath)) {
+            const destResourcesNeu = path.join(appResourcesPath, 'resources.neu');
+            console.log(`Copying resources.neu from ${resourcesNeuPath} to ${destResourcesNeu}`);
+            fsSync.copyFileSync(resourcesNeuPath, destResourcesNeu);
+            console.log('✓ Copied resources.neu to app bundle');
+          } else {
+            console.warn(`resources.neu not found at: ${resourcesNeuPath}`);
+          }
+
+          // Copy updated resources directory (React build)
+          const resourcesDir = path.join(__dirname, 'resources');
+          if (fsSync.existsSync(resourcesDir)) {
+            const appResourcesDir = path.join(appResourcesPath, 'resources');
+            console.log(`Copying resources from ${resourcesDir} to ${appResourcesDir}`);
+            // Remove old resources and copy new ones
+            if (fsSync.existsSync(appResourcesDir)) {
+              fsSync.rmSync(appResourcesDir, { recursive: true, force: true });
+            }
+            fsSync.cpSync(resourcesDir, appResourcesDir, { recursive: true });
+            console.log('✓ Copied updated resources directory to app bundle');
+          } else {
+            console.warn(`Resources directory not found at: ${resourcesDir}`);
+          }
+
+          // Copy updated server.js
+          const serverPath = path.join(__dirname, 'server.js');
+          if (fsSync.existsSync(serverPath)) {
+            const destServerPath = path.join(appResourcesPath, 'server.js');
+            console.log(`Copying server.js from ${serverPath} to ${destServerPath}`);
+            fsSync.copyFileSync(serverPath, destServerPath);
+            console.log('✓ Copied updated server.js to app bundle');
+          }
+
+          // Copy package.json (needed for npm install if node_modules are missing)
+          const packageJsonPath = path.join(__dirname, 'package.json');
+          if (fsSync.existsSync(packageJsonPath)) {
+            const destPackageJson = path.join(appResourcesPath, 'package.json');
+            fsSync.copyFileSync(packageJsonPath, destPackageJson);
+            console.log('✓ Copied package.json to app bundle');
+          }
+
+          // Copy neutralino.config.json (needed for Neutralino)
+          const neutralinoConfigPath = path.join(__dirname, 'neutralino.config.json');
+          if (fsSync.existsSync(neutralinoConfigPath)) {
+            const destNeutralinoConfig = path.join(appResourcesPath, 'neutralino.config.json');
+            fsSync.copyFileSync(neutralinoConfigPath, destNeutralinoConfig);
+            console.log('✓ Copied neutralino.config.json to app bundle');
+          }
+
+          // Copy neutralino.js (needed for Neutralino)
+          const neutralinoJsPath = path.join(__dirname, 'neutralino.js');
+          if (fsSync.existsSync(neutralinoJsPath)) {
+            const destNeutralinoJs = path.join(appResourcesPath, 'neutralino.js');
+            fsSync.copyFileSync(neutralinoJsPath, destNeutralinoJs);
+            console.log('✓ Copied neutralino.js to app bundle');
+          }
+
+          // Note: We don't copy node_modules during update to save time
+          // The existing node_modules should still work, or npm install can be run if needed
+
+          // Verify the files were copied
+          const binaryExists = fsSync.existsSync(path.join(appResourcesPath, binaryName));
+          const resourcesNeuExists = fsSync.existsSync(path.join(appResourcesPath, 'resources.neu'));
+          const resourcesDirExists = fsSync.existsSync(path.join(appResourcesPath, 'resources'));
+          const serverExists = fsSync.existsSync(path.join(appResourcesPath, 'server.js'));
+
+          console.log('Verification:');
+          console.log(`  Binary exists: ${binaryExists}`);
+          console.log(`  resources.neu exists: ${resourcesNeuExists}`);
+          console.log(`  resources directory exists: ${resourcesDirExists}`);
+          console.log(`  server.js exists: ${serverExists}`);
+
+          if (binaryExists && resourcesNeuExists && resourcesDirExists && serverExists) {
+            console.log('✓ App bundle updated successfully - all files verified');
+          } else {
+            console.warn('⚠ Some files may not have been copied correctly');
+          }
+        } else {
+          console.warn('Could not find app bundle to update.');
+          console.warn('Current __dirname:', __dirname);
+          console.warn('Searched paths:', [
+            __dirname.includes('.app') ? `Found in __dirname: ${__dirname.match(/(.*\.app)/)?.[1]}` : 'Not in .app bundle',
+            '/Applications/Vivaro.app',
+            path.join(process.env.HOME || os.homedir(), 'Applications/Vivaro.app')
+          ]);
+          console.warn('App may need to be manually reinstalled.');
+          updateProgress.message = `Update completed, but app bundle not found. Please manually reinstall the app.`;
+        }
 
         updateProgress.progress = 100;
         updateProgress.status = 'completed';
@@ -1674,14 +2072,73 @@ app.post('/api/updates/perform', async (req, res) => {
         // The user will need to manually restart
 
       } catch (error) {
+        console.error('=== ERROR DURING UPDATE ===');
         console.error('Error during update:', error);
-        console.error('Update failed. Please check the logs and try again.');
-        console.error('Error details:', error.message);
-        if (error.stdout) console.error('Command output:', error.stdout);
-        if (error.stderr) console.error('Command errors:', error.stderr);
+        console.error('Error type:', error.constructor.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+
+        // Log environment at time of error
+        console.error('=== ENVIRONMENT AT ERROR TIME ===');
+        console.error('__dirname:', __dirname);
+        console.error('process.cwd():', process.cwd());
+        console.error('process.execPath:', process.execPath);
+        console.error('process.env.PATH:', process.env.PATH);
+        console.error('process.env.HOME:', process.env.HOME);
+        console.error('process.env.NEUTRALINO:', process.env.NEUTRALINO);
+
+        // Log npm-related variables if they exist
+        if (typeof nodeDir !== 'undefined') {
+          console.error('nodeDir (from earlier):', nodeDir);
+        }
+        if (typeof npmPath !== 'undefined') {
+          console.error('npmPath (from earlier):', npmPath);
+          console.error('npmPath exists:', fsSync.existsSync(npmPath));
+        }
+        if (typeof npmCmd !== 'undefined') {
+          console.error('npmCmd (from earlier):', npmCmd);
+        }
+        if (typeof npmEnv !== 'undefined') {
+          console.error('npmEnv.PATH (from earlier):', npmEnv.PATH);
+        }
+
+        if (error.stdout) {
+          console.error('Command stdout:', error.stdout);
+          console.error('Command stdout length:', error.stdout.length);
+        }
+        if (error.stderr) {
+          console.error('Command stderr:', error.stderr);
+          console.error('Command stderr length:', error.stderr.length);
+        }
+        if (error.cmd) {
+          console.error('Command that failed:', error.cmd);
+        }
+        if (error.code) {
+          console.error('Exit code:', error.code);
+        }
+        console.error('=== END ERROR DETAILS ===');
 
         updateProgress.status = 'error';
-        updateProgress.error = error.message || 'Update failed. Please check the logs and try again.';
+        // Provide more helpful error message
+        let errorMessage = error.message || 'Update failed. Please check the logs and try again.';
+
+        // Check for npm-related errors
+        const errorText = (error.stderr || '') + (error.stdout || '') + (error.message || '') + (error.cmd || '');
+        console.log('Checking error text for npm issues. Error text length:', errorText.length);
+        console.log('Error text contains "npm: command not found":', errorText.includes('npm: command not found'));
+        console.log('Error text contains "/bin/sh: npm":', errorText.includes('/bin/sh: npm'));
+
+        if (errorText.includes('npm: command not found') || errorText.includes('/bin/sh: npm: command not found')) {
+          errorMessage = `npm not found. The update process tried to use npm but it was not found. This usually means Node.js/npm are not in the system PATH when running from the app bundle. Please check the server console logs for details about which npm path was attempted.`;
+        } else if (error.message && error.message.includes('npm')) {
+          errorMessage = error.message;
+        } else if (error.stderr) {
+          // Include stderr in the error message for more context
+          const stderrPreview = error.stderr.length > 200 ? error.stderr.substring(0, 200) + '...' : error.stderr;
+          errorMessage = `${error.message || 'Update failed'}. ${stderrPreview}`;
+        }
+
+        updateProgress.error = errorMessage;
         updateProgress.message = 'Update failed';
       }
     })();
@@ -1693,6 +2150,269 @@ app.post('/api/updates/perform', async (req, res) => {
     updateProgress.message = 'Failed to start update';
     res.status(500).json({
       error: 'Failed to start update',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/restart - Restart the application
+app.post('/api/restart', async (req, res) => {
+  console.log('=== /api/restart ROUTE CALLED ===');
+  try {
+    console.log('Restart request received');
+    console.log('__dirname:', __dirname);
+    console.log('process.execPath:', process.execPath);
+
+    // Send response immediately before restarting
+    res.json({ success: true, message: 'Restarting application...' });
+
+    // Launch a new instance of the app (macOS)
+    // This runs in the background, so the response is sent first
+    // Use setImmediate to ensure it runs, but don't wait for it
+    setImmediate(async () => {
+      try {
+        console.log('=== RESTART PROCESS STARTING ===');
+        // Try to find the app by looking at where we're running from
+        // In a .app bundle, __dirname will be inside Contents/Resources
+        let appPath = null;
+
+        // Check if we're inside a .app bundle
+        if (__dirname.includes('.app/Contents')) {
+          // Extract the .app path
+          const appMatch = __dirname.match(/(.*\.app)/);
+          if (appMatch) {
+            appPath = appMatch[1];
+            console.log('Found app path from __dirname:', appPath);
+          }
+        }
+
+        // If not found, try common locations
+        if (!appPath || !fsSync.existsSync(appPath)) {
+          const possiblePaths = [
+            '/Applications/Vivaro.app',
+            path.join(process.env.HOME || os.homedir(), 'Applications/Vivaro.app'),
+            path.join(__dirname, '../../Vivaro.app'),
+            path.join(__dirname, '../Vivaro.app'),
+            path.join(__dirname, '../../../../Vivaro.app') // If in Contents/Resources
+          ];
+
+          for (const possiblePath of possiblePaths) {
+            if (fsSync.existsSync(possiblePath)) {
+              appPath = possiblePath;
+              console.log('Found app path in common location:', appPath);
+              break;
+            }
+          }
+        }
+
+        // Use osascript for a more reliable macOS restart
+        // This approach uses AppleScript to quit and reopen the app
+        const appPathForScript = appPath && fsSync.existsSync(appPath) ? appPath : 'Vivaro';
+        const logFile = path.join(os.tmpdir(), `vivaro-restart-${Date.now()}.log`);
+
+        // Create an AppleScript that will quit and reopen the app
+        const appleScript = `
+tell application "${appPathForScript}"
+  quit
+end tell
+
+delay 2
+
+tell application "${appPathForScript}"
+  activate
+end tell
+`;
+
+        // Also create a bash script as backup that uses killall + open
+        // Need to escape $ signs that are NOT meant for template interpolation
+        const scriptContent = `#!/bin/bash
+# Restart script for Vivaro app
+# This script runs independently and will restart the app
+
+LOG_FILE="${logFile}"
+APP_PATH="${(appPath || '').replace(/"/g, '\\"')}"
+APP_NAME="Vivaro"
+
+log() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
+log "=== Vivaro Restart Script ==="
+log "Starting restart process"
+log "Script PID: $$"
+
+# Function to find app path
+find_app() {
+  if [ -n "$APP_PATH" ] && [ -d "$APP_PATH" ]; then
+    echo "$APP_PATH"
+    return 0
+  fi
+
+  TEST_PATHS=(
+    "/Applications/Vivaro.app"
+    "$HOME/Applications/Vivaro.app"
+  )
+
+  for test_path in "\${TEST_PATHS[@]}"; do
+    if [ -d "$test_path" ]; then
+      echo "$test_path"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+FOUND_APP=$(find_app)
+APP_TO_USE="${appPathForScript}"
+
+# Step 1: Launch new instance FIRST (before killing old one)
+# Use open -n to force a new instance even if one is running
+log "Step 1: Launching new instance..."
+if [ -n "$FOUND_APP" ] && [ -d "$FOUND_APP" ]; then
+  log "Found app at: $FOUND_APP"
+  log "Launching with: open -n \"$FOUND_APP\""
+  open -n "$FOUND_APP" 2>&1 | tee -a "$LOG_FILE"
+  APP_TO_USE="$FOUND_APP"
+else
+  log "App path not found, trying by name..."
+  log "Launching with: open -n -a \"$APP_NAME\""
+  open -n -a "$APP_NAME" 2>&1 | tee -a "$LOG_FILE"
+  APP_TO_USE="$APP_NAME"
+fi
+log "✓ Launch command executed"
+
+# Step 2: Wait for new instance to fully start
+log "Step 2: Waiting for new instance to start (5 seconds)..."
+sleep 5
+log "✓ Wait complete"
+
+# Step 3: Kill all old instances (this will kill the old app, but new one should be running)
+log "Step 3: Killing old app instances..."
+log "Running: killall vivaro-mac_arm64"
+killall vivaro-mac_arm64 2>&1 | tee -a "$LOG_FILE" || true
+sleep 2
+log "✓ Killall executed"
+
+# Step 4: Double-check and ensure fresh instance is running
+log "Step 4: Ensuring fresh instance is running..."
+if [ -n "$FOUND_APP" ] && [ -d "$FOUND_APP" ]; then
+  log "Opening: $FOUND_APP"
+  open "$FOUND_APP" 2>&1 | tee -a "$LOG_FILE"
+else
+  log "Opening by name: $APP_NAME"
+  open -a "$APP_NAME" 2>&1 | tee -a "$LOG_FILE"
+fi
+log "✓ Final launch command executed"
+
+log "=== Restart Complete ==="
+`;
+
+        // Write both scripts to temp files
+        const scriptPath = path.join(os.tmpdir(), `vivaro-restart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.sh`);
+        const appleScriptPath = path.join(os.tmpdir(), `vivaro-restart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.scpt`);
+
+        fsSync.writeFileSync(scriptPath, scriptContent);
+        fsSync.chmodSync(scriptPath, 0o755);
+
+        // Step 1: Launch new instance FIRST
+        console.log('=== Step 1: Launching new instance ===');
+        console.log('App path:', appPath);
+        console.log('App path for script:', appPathForScript);
+
+        if (appPath && fsSync.existsSync(appPath)) {
+          console.log(`Executing: open -n "${appPath}"`);
+          const { stdout, stderr } = await execAsync(`open -n "${appPath}"`, { shell: '/bin/bash' });
+          if (stdout) console.log('open stdout:', stdout);
+          if (stderr) console.log('open stderr:', stderr);
+          console.log('✓ New instance launched from path');
+        } else {
+          console.log(`Executing: open -n -a "${appPathForScript}"`);
+          const { stdout, stderr } = await execAsync(`open -n -a "${appPathForScript}"`, { shell: '/bin/bash' });
+          if (stdout) console.log('open -a stdout:', stdout);
+          if (stderr) console.log('open -a stderr:', stderr);
+          console.log('✓ New instance launched by name');
+        }
+
+        // Step 2: Wait for new instance to start
+        console.log('=== Step 2: Waiting for new instance to start (4 seconds) ===');
+        await new Promise(resolve => setTimeout(resolve, 4000));
+        console.log('✓ Wait complete');
+
+        // Step 3: Create a script that will quit the old instance
+        // This script runs independently and will quit the app
+        const appNameEscaped = appPathForScript.replace(/'/g, "'\\''");
+        const quitScript = `#!/bin/bash
+# Quit script - runs independently
+osascript -e 'tell application "${appNameEscaped}" to quit' 2>/dev/null || killall vivaro-mac_arm64 2>/dev/null || true
+`;
+
+        const quitScriptPath = path.join(os.tmpdir(), `vivaro-quit-${Date.now()}.sh`);
+        fsSync.writeFileSync(quitScriptPath, quitScript);
+        fsSync.chmodSync(quitScriptPath, 0o755);
+
+        // Step 4: Execute quit script in background (this will quit the old instance)
+        console.log('=== Step 3: Quitting old instance ===');
+        console.log('Quit script path:', quitScriptPath);
+        console.log('Quit script content:', quitScript);
+
+        try {
+          const { spawn } = require('child_process');
+          console.log('Spawning quit script process...');
+          const quitProcess = spawn('bash', [quitScriptPath], {
+            detached: true,
+            stdio: 'pipe' // Change to 'pipe' so we can see output
+          });
+
+          // Log output from quit script
+          quitProcess.stdout.on('data', (data) => {
+            console.log('Quit script stdout:', data.toString());
+          });
+          quitProcess.stderr.on('data', (data) => {
+            console.log('Quit script stderr:', data.toString());
+          });
+
+          quitProcess.unref();
+          console.log('✓ Quit command launched (PID:', quitProcess.pid, ')');
+        } catch (quitError) {
+          console.error('Error launching quit command:', quitError);
+          console.error('Error stack:', quitError.stack);
+          // Fallback: try direct osascript
+          try {
+            console.log('Trying fallback: direct osascript quit');
+            await execAsync(`osascript -e 'tell application "${appNameEscaped}" to quit'`, {
+              shell: '/bin/bash',
+              timeout: 1000
+            });
+            console.log('✓ Fallback quit succeeded');
+          } catch (e) {
+            console.error('Fallback quit also failed:', e);
+            console.error('Fallback error stack:', e.stack);
+          }
+        }
+
+        console.log('=== RESTART PROCESS COMPLETE ===');
+
+        // Exit this Node.js process after giving the quit command time to execute
+        // The new instance should already be running, and the quit command will close the old one
+        console.log('Exiting Node.js process (new instance should be running, quit command will close old one)...');
+        setTimeout(() => {
+          process.exit(0);
+        }, 1000); // Give quit command 1 second to execute
+      } catch (error) {
+        console.error('=== ERROR IN RESTART PROCESS ===');
+        console.error('Error:', error);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        console.error('=== END RESTART ERROR ===');
+      }
+    });
+
+  } catch (error) {
+    console.error('Error handling restart request:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to restart application',
       message: error.message
     });
   }
@@ -1766,6 +2486,16 @@ async function startServer() {
   try {
     await ensureDataDirectory();
     await migrateOldData();
+
+    // Log all registered routes for debugging before starting server
+    console.log('Registered API routes:');
+    app._router.stack.forEach((middleware) => {
+      if (middleware.route) {
+        const methods = Object.keys(middleware.route.methods).join(', ').toUpperCase();
+        console.log(`  ${methods} ${middleware.route.path}`);
+      }
+    });
+    console.log('=== Starting server ===');
 
     const server = app.listen(PORT, 'localhost', () => {
       console.log(`Server running on http://localhost:${PORT}`);
