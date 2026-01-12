@@ -379,7 +379,7 @@ const MeetingNotes = ({ notes, onEdit, onDelete, onCreateFolder, onDeleteFolder,
           >
             <span className="folder-icon">📁</span>
             <span className="folder-name">All Notes</span>
-            <span className="folder-count">({filteredNotes.length})</span>
+            <span className="folder-count">({filteredNotes.filter(note => note.title !== '.folder').length})</span>
           </div>
           {Object.keys(folderTree.folders).map(folderName => (
             <FolderTreeItem
