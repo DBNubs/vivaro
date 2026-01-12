@@ -35,3 +35,4 @@ neutralinojs.log
 # Application data (runtime data, not source code)
 /data
 .tmp/
+.tmp/*
