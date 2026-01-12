@@ -74,7 +74,7 @@ try {
   // Write error to log file
   try {
     fsSync.appendFileSync(logFile, errorMsg);
-  } catch (e) {}
+  } catch (e) { }
 
   process.exit(1);
 }
@@ -2417,6 +2417,16 @@ osascript -e 'tell application "${appNameEscaped}" to quit' 2>/dev/null || killa
       message: error.message
     });
   }
+});
+
+// Handle unmatched POST requests to /api/* routes (must be after all specific API routes)
+// This will catch any POST to /api/* that doesn't match a specific route above
+app.post(/^\/api\/.*/, (req, res) => {
+  console.log('POST catch-all: API route not found:', req.method, req.path);
+  res.status(404).json({
+    error: 'Not found',
+    message: `API endpoint ${req.method} ${req.path} not found`
+  });
 });
 
 // Serve React app catch-all route (must be after all API routes)
