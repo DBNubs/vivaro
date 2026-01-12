@@ -1582,6 +1582,24 @@ app.post('/api/updates/perform', async (req, res) => {
         }
 
         // Checkout the specific tag
+        // First, stash any local changes to avoid checkout conflicts
+        try {
+          const { stdout: statusOutput } = await execAsync('git status --porcelain', {
+            cwd: __dirname,
+            maxBuffer: 10 * 1024 * 1024
+          });
+          if (statusOutput.trim()) {
+            console.log('Stashing local changes before checkout...');
+            await execAsync('git stash push -m "Auto-stash before update checkout"', {
+              cwd: __dirname,
+              maxBuffer: 10 * 1024 * 1024
+            });
+          }
+        } catch (stashError) {
+          // If stash fails, continue anyway - might be no changes to stash
+          console.log('No changes to stash or stash failed:', stashError.message);
+        }
+
         try {
           await execAsync(`git checkout ${targetTag}`, {
             cwd: __dirname,
