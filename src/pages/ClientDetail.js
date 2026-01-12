@@ -1153,12 +1153,12 @@ function ClientDetail() {
           {
             id: 'notes',
             label: 'Notes',
-            badge: meetingNotes.length,
+            badge: meetingNotes.filter(note => note.title !== '.folder').length,
           },
           {
             id: 'resources',
             label: 'Resources',
-            badge: resources.length,
+            badge: resources.filter(resource => resource.title !== '.folder').length,
           },
         ]}
         activeTab={activeTab}

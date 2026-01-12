@@ -533,7 +533,7 @@ const Resources = ({ resources, onAddLink, onAddFile, onEdit, onDelete, onCreate
               >
                 <span className="folder-icon">📁</span>
                 <span className="folder-name">All Resources</span>
-                <span className="folder-count">({resources.length})</span>
+                <span className="folder-count">({resources.filter(resource => resource.title !== '.folder').length})</span>
               </div>
               {Object.keys(folderTree.folders).map(folderName => (
                 <ResourceFolderTreeItem
@@ -833,9 +833,10 @@ const Resources = ({ resources, onAddLink, onAddFile, onEdit, onDelete, onCreate
   );
 };
 
-// Helper function to count all items in a folder tree
+// Helper function to count all items in a folder tree (excluding .folder placeholders)
 const countResourceItems = (folderData) => {
-  let count = folderData.links.length + folderData.files.length;
+  let count = folderData.links.filter(resource => resource.title !== '.folder').length +
+              folderData.files.filter(resource => resource.title !== '.folder').length;
   Object.values(folderData.folders).forEach(subFolder => {
     count += countResourceItems(subFolder);
   });
