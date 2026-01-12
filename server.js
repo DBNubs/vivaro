@@ -2157,6 +2157,8 @@ app.post('/api/updates/perform', async (req, res) => {
 
 // POST /api/restart - Restart the application
 console.log('Registering /api/restart route...');
+console.log('Route registration - __dirname:', __dirname);
+console.log('Route registration - server.js location:', __filename);
 app.post('/api/restart', async (req, res) => {
   console.log('=== /api/restart ROUTE CALLED ===');
   try {
@@ -2419,16 +2421,6 @@ osascript -e 'tell application "${appNameEscaped}" to quit' 2>/dev/null || killa
   }
 });
 
-// Handle unmatched POST requests to /api/* routes (must be after all specific API routes)
-// This will catch any POST to /api/* that doesn't match a specific route above
-app.post(/^\/api\/.*/, (req, res) => {
-  console.log('POST catch-all: API route not found:', req.method, req.path);
-  res.status(404).json({
-    error: 'Not found',
-    message: `API endpoint ${req.method} ${req.path} not found`
-  });
-});
-
 // Serve React app catch-all route (must be after all API routes)
 // Only serve static files if we're in Neutralino or production mode
 if (process.env.NEUTRALINO || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
@@ -2500,12 +2492,22 @@ async function startServer() {
 
     // Log all registered routes for debugging before starting server
     console.log('Registered API routes:');
+    let foundRestartRoute = false;
     app._router.stack.forEach((middleware) => {
       if (middleware.route) {
         const methods = Object.keys(middleware.route.methods).join(', ').toUpperCase();
-        console.log(`  ${methods} ${middleware.route.path}`);
+        const routePath = middleware.route.path;
+        console.log(`  ${methods} ${routePath}`);
+        if (routePath === '/api/restart' && methods.includes('POST')) {
+          foundRestartRoute = true;
+        }
       }
     });
+    if (foundRestartRoute) {
+      console.log('✓ /api/restart route is registered');
+    } else {
+      console.error('✗ /api/restart route is NOT registered!');
+    }
     console.log('=== Starting server ===');
 
     const server = app.listen(PORT, 'localhost', () => {
