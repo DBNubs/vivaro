@@ -34,5 +34,6 @@ neutralinojs.log
 
 # Application data (runtime data, not source code)
 /data
+.tmp/auth_info.json
 .tmp/
 .tmp/*
