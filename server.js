@@ -2419,6 +2419,15 @@ osascript -e 'tell application "${appNameEscaped}" to quit' 2>/dev/null || killa
   }
 });
 
+// Handle unmatched POST requests to /api/* routes (must be after all specific API routes)
+app.post('/api/*', (req, res) => {
+  console.log('POST catch-all: API route not found:', req.method, req.path);
+  res.status(404).json({
+    error: 'Not found',
+    message: `API endpoint ${req.method} ${req.path} not found`
+  });
+});
+
 // Serve React app catch-all route (must be after all API routes)
 // Only serve static files if we're in Neutralino or production mode
 if (process.env.NEUTRALINO || (process.env.NODE_ENV === 'production' && !process.env.STANDALONE_SERVER)) {
