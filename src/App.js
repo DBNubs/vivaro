@@ -299,7 +299,7 @@ function App() {
         error: errorMessage
       });
     }
-  }), []);
+  }, []);
 
   // Function to check for updates
   const checkForUpdates = useCallback(async () => {
