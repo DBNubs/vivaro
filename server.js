@@ -2155,8 +2155,41 @@ app.post('/api/updates/perform', async (req, res) => {
   }
 });
 
+// GET /api/test - Simple test endpoint to verify server is running current code
+// This endpoint should exist in all versions to help diagnose server issues
+app.get('/api/test', (req, res) => {
+  // Check if restart route exists
+  let hasRestartRoute = false;
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route && middleware.route.path === '/api/restart') {
+      const methods = Object.keys(middleware.route.methods);
+      if (methods.includes('post')) {
+        hasRestartRoute = true;
+      }
+    }
+  });
+
+  res.json({
+    message: 'Server is running current code',
+    version: '2026.01.12-with-restart', // Version identifier
+    timestamp: new Date().toISOString(),
+    hasRestartRoute: hasRestartRoute,
+    serverFile: __filename,
+    serverDir: __dirname,
+    routes: app._router.stack
+      .filter(m => m.route)
+      .map(m => ({
+        path: m.route.path,
+        methods: Object.keys(m.route.methods)
+      }))
+      .filter(r => r.path.startsWith('/api/'))
+  });
+});
+
 // POST /api/restart - Restart the application
+// This route was added on 2026-01-12
 console.log('Registering /api/restart route...');
+console.log('Route registration timestamp:', new Date().toISOString());
 app.post('/api/restart', async (req, res) => {
   console.log('=== /api/restart ROUTE CALLED ===');
   try {
@@ -2500,12 +2533,22 @@ async function startServer() {
 
     // Log all registered routes for debugging before starting server
     console.log('Registered API routes:');
+    let hasRestartRoute = false;
     app._router.stack.forEach((middleware) => {
       if (middleware.route) {
         const methods = Object.keys(middleware.route.methods).join(', ').toUpperCase();
-        console.log(`  ${methods} ${middleware.route.path}`);
+        const path = middleware.route.path;
+        console.log(`  ${methods} ${path}`);
+        if (path === '/api/restart' && methods.includes('POST')) {
+          hasRestartRoute = true;
+        }
       }
     });
+    if (hasRestartRoute) {
+      console.log('✓ /api/restart route is registered');
+    } else {
+      console.error('✗ WARNING: /api/restart route is NOT registered!');
+    }
     console.log('=== Starting server ===');
 
     const server = app.listen(PORT, 'localhost', () => {
