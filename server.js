@@ -2156,6 +2156,7 @@ app.post('/api/updates/perform', async (req, res) => {
 });
 
 // POST /api/restart - Restart the application
+console.log('Registering /api/restart route...');
 app.post('/api/restart', async (req, res) => {
   console.log('=== /api/restart ROUTE CALLED ===');
   try {
