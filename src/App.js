@@ -181,6 +181,37 @@ function App() {
     });
 
     try {
+      // First, test if server is running current code (optional check)
+      console.log('Testing server endpoint...');
+      let testEndpointAvailable = false;
+      try {
+        const testResponse = await fetch('http://localhost:3001/api/test');
+        if (testResponse.ok) {
+          const testData = await testResponse.json();
+          testEndpointAvailable = true;
+          console.log('Server test response:', testData);
+          console.log('Server version:', testData.version || 'unknown');
+
+          if (!testData.hasRestartRoute) {
+            const routeList = testData.routes?.map(r => `${r.methods.join(', ').toUpperCase()} ${r.path}`).join('\n') || 'none';
+            throw new Error(`Server is running but restart route is not available.\n\nServer version: ${testData.version || 'unknown'}\nServer file: ${testData.serverFile}\nAvailable routes:\n${routeList}`);
+          }
+
+          // Verify version
+          if (testData.version !== '2026.01.12-with-restart') {
+            console.warn('Server version mismatch. Expected: 2026.01.12-with-restart, Got:', testData.version);
+          }
+        } else {
+          const errorText = await testResponse.text();
+          console.warn('Test endpoint returned error:', testResponse.status, errorText);
+          // Don't throw here - try the restart anyway
+        }
+      } catch (testError) {
+        console.warn('Test endpoint error (non-fatal):', testError);
+        // Continue to try restart anyway - the test endpoint might not exist in old code
+        // but the restart endpoint might still work if it was added separately
+      }
+
       console.log('Calling restart endpoint...');
       // Use the server-side restart endpoint to avoid thread issues
       // The server will launch a new instance, then we can close this one
@@ -196,6 +227,18 @@ function App() {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Restart endpoint error:', errorText);
+        console.error('Response status:', response.status);
+
+        // Check if it's a 404 - route doesn't exist
+        if (response.status === 404) {
+          let detailedError = `Restart endpoint not found (404).`;
+          if (!testEndpointAvailable) {
+            detailedError += `\n\nThe test endpoint also returned 404, confirming the server is running very old code.`;
+          }
+          detailedError += `\n\nThe server process needs to be killed and restarted to load the new code.`;
+          throw new Error(detailedError);
+        }
+
         throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
       }
 
@@ -223,16 +266,40 @@ function App() {
     } catch (error) {
       console.error('Error restarting application:', error);
       console.error('Error stack:', error.stack);
-      // Don't reload - show error instead
+
+      let errorMessage = `Failed to restart: ${error.message}`;
+
+      if (error.message.includes('404') || error.message.includes('not found') || error.message.includes('old code')) {
+        errorMessage += `\n\nThe server is running old code that doesn't have the restart endpoint.`;
+        errorMessage += `\n\n⚠️ IMPORTANT: You must kill the server process and restart it.`;
+        errorMessage += `\n\nThe server process is currently running old code. Simply closing and reopening the app may not work if the server is started automatically.`;
+        errorMessage += `\n\nTo fix this:`;
+        errorMessage += `\n\n1. Open Terminal (Applications > Utilities > Terminal)`;
+        errorMessage += `\n2. Run this command to kill the server:`;
+        errorMessage += `\n   lsof -ti:3001 | xargs kill -9`;
+        errorMessage += `\n3. Verify it's killed (should return nothing):`;
+        errorMessage += `\n   lsof -ti:3001`;
+        errorMessage += `\n4. Close this application completely`;
+        errorMessage += `\n5. Reopen the application`;
+        errorMessage += `\n\nIf you're running in development mode:`;
+        errorMessage += `\n1. Find the terminal window running "npm run server"`;
+        errorMessage += `\n2. Press Ctrl+C to stop it`;
+        errorMessage += `\n3. Run: npm run server`;
+        errorMessage += `\n\nAfter restarting, the test endpoint should work and show version "2026.01.12-with-restart".`;
+      } else {
+        errorMessage += `\n\nPlease manually close and reopen the application.`;
+      }
+
+      // Show error in update dialog
       setUpdateState({
         isOpen: true,
         progress: 100,
         status: 'error',
         message: 'Restart failed',
-        error: `Failed to restart: ${error.message}. Please manually close and reopen the application.`
+        error: errorMessage
       });
     }
-  }, []);
+  }), []);
 
   // Function to check for updates
   const checkForUpdates = useCallback(async () => {
