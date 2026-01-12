@@ -1,7 +1,7 @@
 import React from 'react';
 import './UpdateProgress.css';
 
-function UpdateProgress({ isOpen, progress, status, message, error, onClose }) {
+function UpdateProgress({ isOpen, progress, status, message, error, onClose, onRestart }) {
   if (!isOpen) return null;
 
   return (
@@ -29,8 +29,8 @@ function UpdateProgress({ isOpen, progress, status, message, error, onClose }) {
               <p className="restart-message">
                 Please restart the application to use the new version.
               </p>
-              <button className="btn-close-update" onClick={onClose}>
-                Close
+              <button className="btn-restart-update" onClick={onRestart}>
+                Restart Application
               </button>
             </div>
           ) : (

@@ -167,6 +167,73 @@ function App() {
     }
   }, []);
 
+  // Function to restart the application
+  const restartApplication = useCallback(async () => {
+    console.log('restartApplication called');
+
+    // Close the update dialog first to avoid UI conflicts
+    setUpdateState({
+      isOpen: false,
+      progress: 0,
+      status: 'idle',
+      message: '',
+      error: null
+    });
+
+    try {
+      console.log('Calling restart endpoint...');
+      // Use the server-side restart endpoint to avoid thread issues
+      // The server will launch a new instance, then we can close this one
+      const response = await fetch('http://localhost:3001/api/restart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Restart endpoint response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Restart endpoint error:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Restart initiated:', result);
+
+      // Don't try to exit - just show a message and let the new instance take over
+      // The new instance will start, and the old one can be closed manually or will
+      // be replaced when the user opens the app again
+      // This avoids the crash from calling app.exit() from a background thread
+
+      // Show a message that the new instance is starting
+      setTimeout(async () => {
+        try {
+          await showMessageBox(
+            'Restarting Application',
+            'A new instance of the application is starting.\n\nYou can close this window manually, or it will be replaced when you open the app again.',
+            'OK',
+            'INFO'
+          );
+        } catch (error) {
+          console.error('Error showing message:', error);
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('Error restarting application:', error);
+      console.error('Error stack:', error.stack);
+      // Don't reload - show error instead
+      setUpdateState({
+        isOpen: true,
+        progress: 100,
+        status: 'error',
+        message: 'Restart failed',
+        error: `Failed to restart: ${error.message}. Please manually close and reopen the application.`
+      });
+    }
+  }, []);
+
   // Function to check for updates
   const checkForUpdates = useCallback(async () => {
     console.log('checkForUpdates function called');
@@ -505,6 +572,7 @@ function App() {
             message: '',
             error: null
           })}
+          onRestart={restartApplication}
         />
       </div>
     </Router>

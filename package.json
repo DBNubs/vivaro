@@ -34,7 +34,7 @@
     "neutralino:update": "npx @neutralinojs/neu update",
     "neutralino:get-binaries": "./get-neutralino-binaries.sh",
     "neutralino:dev": "node neutralino-main.js & npx @neutralinojs/neu run",
-    "neutralino:build": "npm run build && cp neutralino.js build/ && rm -rf resources && cp -r build resources && npx @neutralinojs/neu build",
+    "neutralino:build": "./build-neutralino.sh",
     "neutralino:installer": "npm run neutralino:build && ./create-macos-installer.sh"
   },
   "eslintConfig": {

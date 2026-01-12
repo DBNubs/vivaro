@@ -274,3 +274,28 @@
   box-shadow: var(--shadow-md, 0 4px 6px rgba(0, 0, 0, 0.1));
 }
 
+.btn-restart-update {
+  margin-top: 1rem;
+  padding: 0.75rem 2rem;
+  background: linear-gradient(135deg, var(--success, #10b981) 0%, var(--success-light, #34d399) 100%);
+  color: white;
+  border: none;
+  border-radius: var(--radius-lg, 10px);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-md, 0 4px 6px rgba(0, 0, 0, 0.1));
+  transition: all 0.2s ease-out;
+}
+
+.btn-restart-update:hover {
+  background: linear-gradient(135deg, var(--success-dark, #059669) 0%, var(--success, #10b981) 100%);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg, 0 10px 15px rgba(0, 0, 0, 0.2));
+}
+
+.btn-restart-update:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-md, 0 4px 6px rgba(0, 0, 0, 0.1));
+}
+
