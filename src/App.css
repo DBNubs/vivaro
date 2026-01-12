@@ -9,7 +9,7 @@
 }
 
 .app-header {
-  background: linear-gradient(135deg, #1a3a52 0%, #2d5a7a 100%);
+  background: linear-gradient(135deg, #115e59 0%, #0f766e 100%);
   color: #ffffff;
   padding: 0;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -28,7 +28,7 @@
   bottom: 0;
   background:
     linear-gradient(135deg, var(--primary-500) 0%, transparent 40%),
-    radial-gradient(ellipse at top left, rgba(21, 101, 192, 0.2) 0%, transparent 60%);
+    radial-gradient(ellipse at top left, rgba(20, 184, 166, 0.2) 0%, transparent 60%);
   pointer-events: none;
   opacity: 0.4;
 }
@@ -40,14 +40,14 @@
   right: 0;
   width: 50%;
   height: 100%;
-  background: radial-gradient(ellipse at top right, rgba(66, 165, 245, 0.15) 0%, transparent 70%);
+  background: radial-gradient(ellipse at top right, rgba(45, 212, 191, 0.15) 0%, transparent 70%);
   pointer-events: none;
 }
 
 /* Ensure sufficient contrast - darken background slightly if needed */
 @media (prefers-contrast: high) {
   .app-header {
-    background: #1a3a52;
+    background: #115e59;
   }
 }
 
