@@ -2189,7 +2189,7 @@ app.get('/api/test', (req, res) => {
 // POST /api/restart - Restart the application
 // This route was added on 2026-01-12
 console.log('Registering /api/restart route...');
-console.log('Route registration timestamp:', new Date().toISOString());
+console.log('Route registration timestamp:', new Date().toISOString())
 app.post('/api/restart', async (req, res) => {
   console.log('=== /api/restart ROUTE CALLED ===');
   try {
@@ -2450,16 +2450,6 @@ osascript -e 'tell application "${appNameEscaped}" to quit' 2>/dev/null || killa
       message: error.message
     });
   }
-});
-
-// Handle unmatched POST requests to /api/* routes (must be after all specific API routes)
-// This will catch any POST to /api/* that doesn't match a specific route above
-app.post(/^\/api\/.*/, (req, res) => {
-  console.log('POST catch-all: API route not found:', req.method, req.path);
-  res.status(404).json({
-    error: 'Not found',
-    message: `API endpoint ${req.method} ${req.path} not found`
-  });
 });
 
 // Serve React app catch-all route (must be after all API routes)
