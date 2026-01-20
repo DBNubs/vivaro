@@ -170,8 +170,10 @@ function Dashboard() {
 
             incompleteReminders.forEach((reminder) => {
               if (reminder.dueDate) {
-                const dueDate = new Date(reminder.dueDate);
-                const dueDateOnly = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+                // Extract date from ISO string to avoid timezone shifts
+                const dateStr = reminder.dueDate.split('T')[0];
+                const [year, month, day] = dateStr.split('-').map(Number);
+                const dueDateOnly = new Date(year, month - 1, day);
 
                 if (dueDateOnly < today) {
                   overdueCount++;
@@ -187,8 +189,10 @@ function Dashboard() {
               reminderCount: incompleteReminders.length,
               overdueCount: incompleteReminders.filter((r) => {
                 if (!r.dueDate) return false;
-                const dueDate = new Date(r.dueDate);
-                const dueDateOnly = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+                // Extract date from ISO string to avoid timezone shifts
+                const dateStr = r.dueDate.split('T')[0];
+                const [year, month, day] = dateStr.split('-').map(Number);
+                const dueDateOnly = new Date(year, month - 1, day);
                 return dueDateOnly < today;
               }).length,
             });

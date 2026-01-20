@@ -904,7 +904,13 @@ app.delete('/api/clients/:id/reminders/:reminderId', async (req, res) => {
     }
 
     const reminders = await readReminders(clientId);
-    const filteredReminders = reminders.filter((r) => r.id !== reminderId);
+    const reminderIndex = reminders.findIndex((r) => String(r.id) === String(reminderId));
+
+    if (reminderIndex === -1) {
+      return res.status(404).json({ error: 'Reminder not found' });
+    }
+
+    const filteredReminders = reminders.filter((r) => String(r.id) !== String(reminderId));
     await writeReminders(clientId, filteredReminders);
     res.json({ success: true });
   } catch (error) {

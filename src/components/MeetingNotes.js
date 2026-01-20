@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import './MeetingNotes.css';
 
-const MeetingNotes = ({ notes, onEdit, onDelete, onCreateFolder, onDeleteFolder, onMoveNote, onSelectedFolderChange }) => {
+const MeetingNotes = ({ notes, onEdit, onDelete, onCreateFolder, onDeleteFolder, onMoveNote, onSelectedFolderChange, confirmDialog }) => {
+  const doConfirm = async (title, message) => {
+    if (confirmDialog) {
+      const result = await confirmDialog(title, message, 'YES_NO', 'QUESTION');
+      return result === 'YES';
+    }
+    return window.confirm(message);
+  };
   const [expandedNote, setExpandedNote] = useState(null);
   const [filterLabel, setFilterLabel] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('');
@@ -284,6 +291,11 @@ const MeetingNotes = ({ notes, onEdit, onDelete, onCreateFolder, onDeleteFolder,
 
   // Handle drag and drop
   const handleDragStart = (e, note) => {
+    // Don't start drag when user clicked on action buttons (edit, delete)
+    if (e.target.closest('.meeting-note-actions')) {
+      e.preventDefault();
+      return;
+    }
     setDraggedNote(note);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', note.id);
@@ -509,16 +521,21 @@ const MeetingNotes = ({ notes, onEdit, onDelete, onCreateFolder, onDeleteFolder,
                           </svg>
                         </button>
                         <button
-                          onClick={(e) => {
+                          type="button"
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            if (window.confirm('Are you sure you want to delete this note?')) {
-                              onDelete(note.id);
+                            if (await doConfirm('Delete Note', 'Are you sure you want to delete this note?')) {
+                              try {
+                                await onDelete(note.id);
+                              } catch (err) {
+                                console.error('Delete note error:', err);
+                              }
                             }
                           }}
                           className="btn-icon btn-delete"
                           title="Delete note"
                         >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ pointerEvents: 'none' }}>
                             <path d="M2 4H14M12.6667 4V13.3333C12.6667 13.687 12.5262 14.0262 12.2761 14.2762C12.0261 14.5263 11.6869 14.6667 11.3333 14.6667H4.66667C4.31305 14.6667 3.97391 14.5263 3.72386 14.2762C3.47381 14.0262 3.33333 13.687 3.33333 13.3333V4M5.33333 4V2.66667C5.33333 2.31305 5.47381 1.97391 5.72386 1.72386C5.97391 1.47381 6.31305 1.33333 6.66667 1.33333H9.33333C9.68696 1.33333 10.0261 1.47381 10.2761 1.72386C10.5262 1.97391 10.6667 2.31305 10.6667 2.66667V4M6.66667 7.33333V11.3333M9.33333 7.33333V11.3333" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </button>
@@ -707,7 +724,8 @@ const countItems = (folderData, labelFilter = '') => {
 };
 
 // Recursive component for rendering nested folders
-const FolderNode = ({ folderName, folderData, expandedFolders, toggleFolder, expandedNote, toggleExpand, onEdit, onDelete, level, parentPath = '' }) => {
+const FolderNode = ({ folderName, folderData, expandedFolders, toggleFolder, expandedNote, toggleExpand, onEdit, onDelete, doConfirm, level, parentPath = '' }) => {
+  const confirm = doConfirm || (async (title, msg) => window.confirm(msg));
   const folderPath = folderData.path;
   const isExpanded = expandedFolders.has(folderPath);
   const totalCount = countItems(folderData);
@@ -762,16 +780,21 @@ const FolderNode = ({ folderName, folderData, expandedFolders, toggleFolder, exp
                     </svg>
                   </button>
                   <button
-                    onClick={(e) => {
+                    type="button"
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      if (window.confirm('Are you sure you want to delete this note?')) {
-                        onDelete(note.id);
+                      if (await confirm('Delete Note', 'Are you sure you want to delete this note?')) {
+                        try {
+                          await onDelete(note.id);
+                        } catch (err) {
+                          console.error('Delete note error:', err);
+                        }
                       }
                     }}
                     className="btn-icon btn-delete"
                     title="Delete note"
                   >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ pointerEvents: 'none' }}>
                       <path d="M2 4H14M12.6667 4V13.3333C12.6667 13.687 12.5262 14.0262 12.2761 14.2762C12.0261 14.5263 11.6869 14.6667 11.3333 14.6667H4.66667C4.31305 14.6667 3.97391 14.5263 3.72386 14.2762C3.47381 14.0262 3.33333 13.687 3.33333 13.3333V4M5.33333 4V2.66667C5.33333 2.31305 5.47381 1.97391 5.72386 1.72386C5.97391 1.47381 6.31305 1.33333 6.66667 1.33333H9.33333C9.68696 1.33333 10.0261 1.47381 10.2761 1.72386C10.5262 1.97391 10.6667 2.31305 10.6667 2.66667V4M6.66667 7.33333V11.3333M9.33333 7.33333V11.3333" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </button>
@@ -800,6 +823,7 @@ const FolderNode = ({ folderName, folderData, expandedFolders, toggleFolder, exp
               toggleExpand={toggleExpand}
               onEdit={onEdit}
               onDelete={onDelete}
+              doConfirm={doConfirm}
               level={level + 1}
               parentPath={displayPath}
             />

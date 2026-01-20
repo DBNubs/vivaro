@@ -1,0 +1,302 @@
+# Vivaro PM Dashboard - Cursor AI Rules
+
+## Project Overview
+
+Vivaro is a React-based desktop application for managing support and maintenance clients. It uses a Node.js/Express backend for data persistence via JSON files and Neutralino for desktop app packaging.
+
+## Tech Stack
+
+- **Frontend**: React 19.2.3, React Router DOM 6.26.0
+- **Backend**: Express.js 4.18.2, Node.js
+- **Desktop**: Neutralino.js for cross-platform desktop packaging
+- **Rich Text**: CKEditor 5 (Classic Editor)
+- **Styling**: CSS (no CSS-in-JS, no Tailwind)
+- **Build Tool**: Create React App (react-scripts 5.0.1)
+
+## Project Structure
+
+```
+src/
+  ├── components/        # Reusable UI components
+  │   ├── ClientForm.js
+  │   ├── ClientList.js
+  │   ├── ContactForm.js
+  │   ├── Contacts.js
+  │   ├── MeetingNoteForm.js
+  │   ├── MeetingNotes.js
+  │   ├── MilestoneForm.js
+  │   ├── Milestones.js
+  │   ├── ReminderForm.js
+  │   ├── Reminders.js
+  │   ├── ResourceForm.js
+  │   ├── Resources.js
+  │   ├── Tabs.js
+  │   └── UpdateProgress.js
+  ├── pages/            # Page-level components
+  │   ├── Dashboard.js
+  │   └── ClientDetail.js
+  ├── utils/            # Utility functions
+  │   └── storage.js    # API functions for data persistence
+  ├── App.js            # Main app component with routing
+  ├── App.css
+  └── index.css         # Global styles and CSS variables
+```
+
+## Code Style & Patterns
+
+### React Components
+
+- **Always use functional components** with React hooks
+- Use `useState` for local component state
+- Use `useEffect` for side effects and data loading
+- Use `useCallback` for memoized functions passed as props
+- Use `useRef` for DOM references and values that don't trigger re-renders
+- **Component naming**: PascalCase (e.g., `ClientForm`, `MeetingNotes`)
+- **File naming**: Match component name (e.g., `ClientForm.js`, `ClientForm.css`)
+
+### Component Structure
+
+```javascript
+import React, { useState, useEffect } from 'react';
+import './ComponentName.css';
+
+const ComponentName = ({ prop1, prop2, onAction }) => {
+  const [state, setState] = useState(initialValue);
+
+  useEffect(() => {
+    // Side effects
+  }, [dependencies]);
+
+  const handleAction = () => {
+    // Handler logic
+  };
+
+  return (
+    <div className="component-name">
+      {/* JSX */}
+    </div>
+  );
+};
+
+export default ComponentName;
+```
+
+### State Management
+
+- Use local component state for UI state
+- Use API calls via `src/utils/storage.js` for data persistence
+- **Never use global state management libraries** (Redux, Context API for global state, etc.)
+- Data flows: Parent → Child via props, Child → Parent via callbacks
+
+### API & Data Persistence
+
+- **All API calls** must go through functions in `src/utils/storage.js`
+- API base URL: `http://localhost:3001/api` (or `process.env.REACT_APP_API_URL`)
+- **Error handling**: Always wrap API calls in try-catch blocks
+- Provide user-friendly error messages for network failures
+- Pattern for API functions:
+  ```javascript
+  export const getResource = async (clientId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/clients/${clientId}/resource`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch resource');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error reading resource from API:', error);
+      return [];
+    }
+  };
+  ```
+
+### Styling Guidelines
+
+- **One CSS file per component** (e.g., `ClientForm.css` for `ClientForm.js`)
+- Use **CSS custom properties (variables)** defined in `src/index.css` for colors
+- **Color palette**: Reference `COLOR_PALETTE.md` for available colors
+- Use semantic class names (e.g., `.client-form-container`, `.btn-primary`)
+- Follow BEM-like naming: `.component-name`, `.component-name__element`, `.component-name--modifier`
+- Use CSS variables: `var(--primary-500)`, `var(--gray-200)`, etc.
+- **No inline styles** except for dynamic values (e.g., `style={{ marginTop: dynamicValue }}`)
+- Use flexbox and CSS Grid for layouts
+- Responsive design: Use media queries when needed
+
+### Form Handling
+
+- Use **controlled components** for all form inputs
+- Validate required fields before submission
+- Show user-friendly error messages (use `alert()` for simple cases, or custom error UI)
+- Pattern:
+  ```javascript
+  const [formData, setFormData] = useState({ field: '' });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  ```
+
+### Neutralino Integration
+
+- **Always check for Neutralino availability** before using Neutralino APIs
+- Provide browser fallbacks for all Neutralino features
+- Pattern:
+  ```javascript
+  if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.os) {
+    // Use Neutralino API
+  } else {
+    // Browser fallback
+  }
+  ```
+- Use `showMessageBox` helper function pattern (see `App.js` and `Dashboard.js`)
+- Handle Neutralino events in `useEffect` with proper cleanup
+
+### Date Handling
+
+- Store dates as ISO strings in the backend
+- Use `new Date().toISOString()` for creating dates
+- Format dates for display: `new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })`
+- For date inputs: `dateString.split('T')[0]` to get YYYY-MM-DD format
+
+### Currency Formatting
+
+- Use `Intl.NumberFormat` for currency display:
+  ```javascript
+  const formatCurrency = (amount) => {
+    if (!amount) return '';
+    const num = parseFloat(amount);
+    if (isNaN(num)) return amount;
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(num);
+  };
+  ```
+
+### Sorting & Filtering
+
+- Sort contacts: Primary first, then alphabetically by name
+- Sort SOWs: Current first, then active (by date range), then by start date (newest first)
+- Past SOWs: Those with end date before today
+- Active SOWs: Start date <= today and (no end date OR end date >= today)
+
+### Error Handling
+
+- Always provide user-friendly error messages
+- Log errors to console for debugging: `console.error('Error description:', error)`
+- Show error UI when API calls fail
+- Handle network errors gracefully (check for `Failed to fetch`)
+
+### Accessibility
+
+- Use semantic HTML elements (`<header>`, `<main>`, `<nav>`, etc.)
+- Include `aria-label` attributes for icon-only buttons
+- Use proper form labels with `htmlFor` attributes
+- Ensure keyboard navigation works (use proper button elements, not divs with onClick)
+
+## Backend (server.js) Guidelines
+
+- **Data directory**: Use `process.env.DATA_DIR` or fallback to `__dirname/data`
+- **Port**: Default to 3001 (or `process.env.PORT`)
+- **CORS**: Enabled for all origins (development)
+- **File uploads**: Use Multer for file resources
+- **Error responses**: Return JSON with `{ error: 'message' }` format
+- **Success responses**: Return the created/updated resource as JSON
+
+## Component-Specific Patterns
+
+### Client Management
+- Clients have: `id`, `name`, `status` ('active' or 'archived'), `notes`, `contacts[]`, `sows[]`
+- Archive/unarchive functionality (status change, not deletion)
+- Primary contact: Only one contact can be marked as primary
+
+### Meeting Notes
+- Use CKEditor for rich text content
+- Store HTML content from CKEditor
+- Validate that content has actual text (strip HTML tags for validation)
+
+### Reminders
+- Track completion status (`completed` boolean)
+- Calculate overdue: `dueDate < today`
+- Calculate due today: `dueDate === today`
+
+### Milestones
+- Track completion status
+- Display with progress indicators
+
+### Resources
+- Two types: `link` and `file`
+- File uploads via FormData
+- Support folders/categories
+
+## Testing
+
+- Use React Testing Library for component tests
+- Test files: `ComponentName.test.js` next to component files
+- Run tests: `npm test`
+
+## Build & Deployment
+
+- **Development**: `npm start` (React) + `npm run server` (Express)
+- **Production build**: `npm run build`
+- **Neutralino dev**: `npm run neutralino:dev`
+- **Neutralino build**: `npm run neutralino:build`
+- **Create installer**: `npm run neutralino:installer`
+
+## Important Notes
+
+1. **Never commit** `data/` directory or `node_modules/`
+2. **Server must be running** for the app to work (port 3001)
+3. **Neutralino features** should always have browser fallbacks
+4. **CSS variables** are defined in `src/index.css` - use them instead of hardcoded colors
+5. **API functions** are centralized in `src/utils/storage.js` - add new API functions there
+6. **Component CSS files** should be co-located with component JS files
+7. **Form validation** should happen before API calls
+8. **Error messages** should be user-friendly, not technical
+
+## Common Patterns to Follow
+
+### Loading States
+```javascript
+const [loading, setLoading] = useState(true);
+// ... in useEffect
+setLoading(true);
+try {
+  const data = await fetchData();
+  setData(data);
+} finally {
+  setLoading(false);
+}
+```
+
+### Conditional Rendering
+```javascript
+{loading ? (
+  <div className="loading-state">Loading...</div>
+) : (
+  <Component data={data} />
+)}
+```
+
+### Error Display
+```javascript
+{error && (
+  <div className="error-message">
+    {error}
+    <button onClick={() => setError(null)}>×</button>
+  </div>
+)}
+```
+
+## When Adding New Features
+
+1. Create component in appropriate directory (`components/` or `pages/`)
+2. Create corresponding CSS file
+3. Add API functions to `src/utils/storage.js` if needed
+4. Add backend routes to `server.js` if needed
+5. Follow existing patterns for similar features
+6. Test in both browser and Neutralino environments
+7. Ensure error handling and loading states are implemented

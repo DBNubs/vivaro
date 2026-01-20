@@ -1172,6 +1172,7 @@ function ClientDetail() {
               onEdit={handleEditReminder}
               onComplete={handleCompleteReminder}
               onDelete={handleDeleteReminder}
+              confirmDialog={showMessageBox}
             />
           </div>
         </div>
@@ -1201,6 +1202,7 @@ function ClientDetail() {
               onDeleteFolder={handleDeleteNoteFolder}
               onMoveNote={handleMoveNote}
               onSelectedFolderChange={setSelectedNoteFolder}
+              confirmDialog={showMessageBox}
             />
           </div>
         </div>

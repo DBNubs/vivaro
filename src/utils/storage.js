@@ -231,13 +231,18 @@ export const updateReminder = async (clientId, reminderId, reminderData) => {
 
 export const deleteReminder = async (clientId, reminderId) => {
   try {
+    console.log(`Deleting reminder: clientId=${clientId}, reminderId=${reminderId}`);
     const response = await fetch(`${API_BASE_URL}/clients/${clientId}/reminders/${reminderId}`, {
       method: 'DELETE',
     });
     if (!response.ok) {
-      throw new Error('Failed to delete reminder');
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('Delete reminder failed:', response.status, errorData);
+      throw new Error(errorData.error || `Failed to delete reminder: ${response.status} ${response.statusText}`);
     }
-    return await response.json();
+    const result = await response.json();
+    console.log('Reminder deleted successfully:', result);
+    return result;
   } catch (error) {
     console.error('Error deleting reminder:', error);
     throw error;
