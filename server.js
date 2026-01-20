@@ -1444,6 +1444,18 @@ async function getLatestGitHubTag() {
   });
 }
 
+// GET /api/version - Debug: version resolution and whether version.json is present
+app.get('/api/version', async (req, res) => {
+  try {
+    const versionJsonPath = path.join(__dirname, 'version.json');
+    const versionJsonExists = fsSync.existsSync(versionJsonPath);
+    const version = await getCurrentVersion();
+    res.json({ version, versionJsonPath, versionJsonExists });
+  } catch (e) {
+    res.status(500).json({ error: (e && e.message) || String(e), versionJsonPath: path.join(__dirname, 'version.json') });
+  }
+});
+
 // GET /api/updates/check - Check for updates
 app.get('/api/updates/check', async (req, res) => {
   try {
