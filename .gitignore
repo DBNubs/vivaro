@@ -32,6 +32,9 @@ neutralinojs.log
 *.deb
 *.rpm
 
+# Build-generated version (from git tag)
+version.json
+
 # Application data (runtime data, not source code)
 /data
 .tmp/auth_info.json
