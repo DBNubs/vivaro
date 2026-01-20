@@ -33,7 +33,7 @@ neutralinojs.log
 *.rpm
 
 # Build-generated version (from git tag)
-/version.json
+version.json
 
 # Application data (runtime data, not source code)
 /data

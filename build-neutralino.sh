@@ -28,7 +28,7 @@ cp -r build resources
 npx @neutralinojs/neu build
 
 # Copy updated server.js and version.json to dist (in case they were modified)
-if [ -f "server.js" ] && [ -d "dist/Vivaro.app/Contents/Resources" ]; then
+if [ -f "server.js" ] && [ -f "dist/Vivaro.app/Contents/Resources/server.js" ]; then
   cp server.js dist/Vivaro.app/Contents/Resources/server.js
   echo "✓ Updated server.js in dist"
 fi
