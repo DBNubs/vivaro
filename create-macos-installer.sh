@@ -3,6 +3,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 APP_NAME="Vivaro"
 BUNDLE_NAME="${APP_NAME}.app"
 DMG_NAME="${APP_NAME}-Installer.dmg"
@@ -12,11 +15,9 @@ CONTENTS_DIR="${BUNDLE_DIR}/Contents"
 MACOS_DIR="${CONTENTS_DIR}/MacOS"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 
-# Ensure version.json exists (from git tag or package.json) so the app reports the correct version
-if [ ! -f "version.json" ]; then
-  VERSION=$(git describe --tags 2>/dev/null | sed 's/^v//' || node -p "require('./package.json').version")
-  echo "{\"version\":\"$VERSION\"}" > version.json
-fi
+# Create/overwrite version.json from git tag (or package.json) so the app reports the correct version
+VERSION=$(git describe --tags 2>/dev/null | sed 's/^v//' || node -p "require('./package.json').version")
+echo "{\"version\":\"$VERSION\"}" > version.json
 
 echo "Creating macOS app bundle..."
 
