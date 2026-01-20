@@ -1286,6 +1286,16 @@ app.delete('/api/clients/:id/contacts/:contactId', async (req, res) => {
 });
 
 // Update check and update endpoints
+const GITHUB_RELEASES_URL = 'https://github.com/DBNubs/vivaro/releases';
+
+function isGitRepository(dir) {
+  try {
+    return fsSync.existsSync(path.join(dir, '.git'));
+  } catch {
+    return false;
+  }
+}
+
 // Helper function to get current git tag or version
 async function getCurrentVersion() {
   try {
@@ -1453,6 +1463,8 @@ app.get('/api/updates/check', async (req, res) => {
         currentVersion,
         latestVersion: latestRelease.tag,
         isUpToDate,
+        canPerformInApp: isGitRepository(__dirname),
+        releasesUrl: GITHUB_RELEASES_URL,
         releaseInfo: {
           name: latestRelease.name,
           published_at: latestRelease.published_at,
@@ -1467,6 +1479,8 @@ app.get('/api/updates/check', async (req, res) => {
         currentVersion,
         latestVersion: null,
         isUpToDate: true, // Assume up to date if we can't check
+        canPerformInApp: isGitRepository(__dirname),
+        releasesUrl: GITHUB_RELEASES_URL,
         error: 'Unable to check for updates',
         message: 'Could not connect to GitHub to check for updates. This may be because the repository is private or there are no releases/tags available.',
         releaseInfo: null
@@ -1563,6 +1577,15 @@ app.post('/api/updates/perform', async (req, res) => {
 
         const targetTag = latestRelease.tag;
         console.log(`Target tag for update: ${targetTag}`);
+
+        // In-app update requires a git repository. Packaged/installed apps don't have .git.
+        if (!isGitRepository(__dirname)) {
+          updateProgress.status = 'error';
+          updateProgress.progress = 0;
+          updateProgress.message = '';
+          updateProgress.error = `In-app updates are only available when running from a development copy of the source. This installation does not have access to the Git repository.\n\nPlease download the latest version from:\n${GITHUB_RELEASES_URL}`;
+          return;
+        }
 
         // Step 2: Fetch tags and checkout the specific tag
         updateProgress.progress = 10;
