@@ -40,6 +40,13 @@ function App() {
     error: null
   });
 
+  const [downloadModal, setDownloadModal] = useState({
+    isOpen: false,
+    currentVersion: '',
+    latestVersion: '',
+    releasesUrl: 'https://github.com/DBNubs/vivaro/releases'
+  });
+
   // Store polling interval reference for cleanup
   const pollingIntervalRef = useRef(null);
 
@@ -338,12 +345,25 @@ function App() {
         );
       } else if (data.latestVersion) {
         // Update available
-        console.log('Update available, showing prompt');
-        const updateMessage = `Update available!\n\nCurrent version: ${data.currentVersion}\nLatest version: ${data.latestVersion}\n\nWould you like to update now?`;
-        const result = await showMessageBox('Update Available', updateMessage, 'YES_NO', 'QUESTION');
+        const canPerformInApp = data.canPerformInApp === true;
+        const releasesUrl = data.releasesUrl || 'https://github.com/DBNubs/vivaro/releases';
 
-        if (result === 'YES') {
-          await performUpdate();
+        if (canPerformInApp) {
+          console.log('Update available, showing in-app update prompt');
+          const updateMessage = `Update available!\n\nCurrent version: ${data.currentVersion}\nLatest version: ${data.latestVersion}\n\nWould you like to update now?`;
+          const result = await showMessageBox('Update Available', updateMessage, 'YES_NO', 'QUESTION');
+
+          if (result === 'YES') {
+            await performUpdate();
+          }
+        } else {
+          console.log('Update available, in-app update not supported — showing download modal');
+          setDownloadModal({
+            isOpen: true,
+            currentVersion: data.currentVersion,
+            latestVersion: data.latestVersion,
+            releasesUrl
+          });
         }
       } else {
         // Fallback - shouldn't happen but just in case
@@ -641,6 +661,47 @@ function App() {
           })}
           onRestart={restartApplication}
         />
+
+        {downloadModal.isOpen && (
+          <div className="download-modal-overlay" role="dialog" aria-labelledby="download-modal-title" aria-modal="true">
+            <div className="download-modal">
+              <div className="download-modal-header">
+                <h2 id="download-modal-title">Update Available</h2>
+              </div>
+              <div className="download-modal-content">
+                <p>Current version: {downloadModal.currentVersion}</p>
+                <p>Latest version: {downloadModal.latestVersion}</p>
+                <p className="download-modal-hint">In-app update is not available for this installation. Please download the latest version from GitHub.</p>
+                <div className="download-modal-actions">
+                  <button
+                    type="button"
+                    className="btn-open-releases"
+                    onClick={() => {
+                      try {
+                        if (window.Neutralino?.os?.open) {
+                          window.Neutralino.os.open(downloadModal.releasesUrl);
+                        } else {
+                          window.open(downloadModal.releasesUrl, '_blank');
+                        }
+                      } catch (e) {
+                        window.open(downloadModal.releasesUrl, '_blank');
+                      }
+                    }}
+                  >
+                    Open Releases Page
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-close-download"
+                    onClick={() => setDownloadModal(prev => ({ ...prev, isOpen: false }))}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Router>
   );
