@@ -12,6 +12,12 @@ CONTENTS_DIR="${BUNDLE_DIR}/Contents"
 MACOS_DIR="${CONTENTS_DIR}/MacOS"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 
+# Ensure version.json exists (from git tag or package.json) so the app reports the correct version
+if [ ! -f "version.json" ]; then
+  VERSION=$(git describe --tags 2>/dev/null | sed 's/^v//' || node -p "require('./package.json').version")
+  echo "{\"version\":\"$VERSION\"}" > version.json
+fi
+
 echo "Creating macOS app bundle..."
 
 # Clean up any existing bundle
@@ -55,10 +61,14 @@ else
   echo "⚠ Warning: build directory not found. Make sure to run 'npm run build' first!"
 fi
 
-# Copy server.js and necessary files to Resources
+# Copy server.js, version.json, and necessary files to Resources
 if [ -f "server.js" ]; then
   cp server.js "${RESOURCES_DIR}/"
   echo "✓ Copied server.js"
+fi
+if [ -f "version.json" ]; then
+  cp version.json "${RESOURCES_DIR}/"
+  echo "✓ Copied version.json"
 fi
 
 # Copy necessary node_modules (only production dependencies for Express server)

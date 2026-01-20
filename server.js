@@ -1286,7 +1286,7 @@ app.delete('/api/clients/:id/contacts/:contactId', async (req, res) => {
 });
 
 // Update check and update endpoints
-const GITHUB_RELEASES_URL = 'https://github.com/DBNubs/vivaro/releases';
+const GITHUB_RELEASES_URL = 'https://github.com/DBNubs/vivaro/releases/latest';
 
 function isGitRepository(dir) {
   try {
@@ -1299,7 +1299,18 @@ function isGitRepository(dir) {
 // Helper function to get current git tag or version
 async function getCurrentVersion() {
   try {
-    // Try to get the current git tag
+    // 1) In built/installed apps: version.json is written at build from the release tag
+    const versionPath = path.join(__dirname, 'version.json');
+    try {
+      const v = JSON.parse(await fs.readFile(versionPath, 'utf8'));
+      if (v && typeof v.version === 'string' && v.version.trim()) {
+        return v.version.trim();
+      }
+    } catch (_) {
+      // not found or invalid, fall through
+    }
+
+    // 2) In a git clone (dev): use git describe
     try {
       const { stdout: tag } = await execAsync('git describe --tags --exact-match 2>/dev/null || git describe --tags 2>/dev/null || echo ""', {
         cwd: __dirname,
@@ -1307,25 +1318,18 @@ async function getCurrentVersion() {
       });
       let currentTag = tag.trim();
       if (currentTag && currentTag !== '') {
-        // Remove 'v' prefix if present for consistency
         currentTag = currentTag.replace(/^v/, '');
-
-        // Strip git commit hash suffix (e.g., "-2-g18b1ded" from "release--2026-01-07.01-2-g18b1ded")
-        // This pattern matches: -<number>-g<hash> at the end of the string
-        // We want to keep just the tag part (e.g., "release--2026-01-07.01")
         currentTag = currentTag.replace(/-\d+-g[a-f0-9]+$/i, '');
-
         return currentTag;
       }
-    } catch (gitError) {
-      // Git command failed, fall through to package.json
+    } catch (_) {
+      // not a git repo or no tags, fall through
     }
 
-    // Fallback to package.json version
+    // 3) Fallback: package.json (often still 0.1.0 if not kept in sync)
     const packageJson = JSON.parse(await fs.readFile(path.join(__dirname, 'package.json'), 'utf8'));
     return packageJson.version;
   } catch (error) {
-    // Final fallback
     try {
       const packageJson = JSON.parse(await fs.readFile(path.join(__dirname, 'package.json'), 'utf8'));
       return packageJson.version;
