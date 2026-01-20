@@ -24,9 +24,16 @@ const ReminderForm = ({ reminder, onSave, onCancel }) => {
       alert('Reminder text is required');
       return;
     }
+    // Create date at local midnight to avoid timezone issues
+    let dueDateISO = null;
+    if (formData.dueDate) {
+      const [year, month, day] = formData.dueDate.split('-').map(Number);
+      const localDate = new Date(year, month - 1, day);
+      dueDateISO = localDate.toISOString();
+    }
     const dataToSave = {
       ...formData,
-      dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : null,
+      dueDate: dueDateISO,
     };
     onSave(dataToSave);
   };

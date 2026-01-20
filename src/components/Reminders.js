@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import './Reminders.css';
 
-const Reminders = ({ reminders, onAdd, onEdit, onComplete, onDelete }) => {
+const Reminders = ({ reminders, onAdd, onEdit, onComplete, onDelete, confirmDialog }) => {
+  const doConfirm = async (title, message) => {
+    if (confirmDialog) {
+      const result = await confirmDialog(title, message, 'YES_NO', 'QUESTION');
+      return result === 'YES';
+    }
+    return window.confirm(message);
+  };
   const [showAddForm, setShowAddForm] = useState(false);
   const [newReminder, setNewReminder] = useState({
     text: '',
@@ -15,7 +22,17 @@ const Reminders = ({ reminders, onAdd, onEdit, onComplete, onDelete }) => {
       alert('Reminder text is required');
       return;
     }
-    onAdd(newReminder);
+    // Create date at local midnight to avoid timezone issues
+    let dueDateISO = null;
+    if (newReminder.dueDate) {
+      const [year, month, day] = newReminder.dueDate.split('-').map(Number);
+      const localDate = new Date(year, month - 1, day);
+      dueDateISO = localDate.toISOString();
+    }
+    onAdd({
+      ...newReminder,
+      dueDate: dueDateISO,
+    });
     setNewReminder({ text: '', dueDate: '', priority: 'medium' });
     setShowAddForm(false);
   };
@@ -33,12 +50,24 @@ const Reminders = ({ reminders, onAdd, onEdit, onComplete, onDelete }) => {
 
   const isOverdue = (dueDate) => {
     if (!dueDate) return false;
-    return new Date(dueDate) < new Date() && new Date(dueDate).toDateString() !== new Date().toDateString();
+    // Extract date from ISO string to avoid timezone shifts
+    const dateStr = dueDate.split('T')[0];
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const dueDateLocal = new Date(year, month - 1, day);
+    const today = new Date();
+    const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return dueDateLocal < todayLocal;
   };
 
   const isDueToday = (dueDate) => {
     if (!dueDate) return false;
-    return new Date(dueDate).toDateString() === new Date().toDateString();
+    // Extract date from ISO string to avoid timezone shifts
+    const dateStr = dueDate.split('T')[0];
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const dueDateLocal = new Date(year, month - 1, day);
+    const today = new Date();
+    const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return dueDateLocal.getTime() === todayLocal.getTime();
   };
 
   return (
@@ -125,11 +154,18 @@ const Reminders = ({ reminders, onAdd, onEdit, onComplete, onDelete }) => {
                     <span className="reminder-date-badge">
                       {isOverdue(reminder.dueDate) && '⚠️ '}
                       {isDueToday(reminder.dueDate) && '📅 '}
-                      {new Date(reminder.dueDate).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: reminder.dueDate.split('-')[0] !== new Date().getFullYear().toString() ? 'numeric' : undefined
-                      })}
+                      {(() => {
+                        // Extract date from ISO string to avoid timezone shifts
+                        const dateStr = reminder.dueDate.split('T')[0];
+                        const [year, month, day] = dateStr.split('-').map(Number);
+                        const localDate = new Date(year, month - 1, day);
+                        const currentYear = new Date().getFullYear();
+                        return localDate.toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: year !== currentYear ? 'numeric' : undefined
+                        });
+                      })()}
                     </span>
                   )}
                 </div>
@@ -152,15 +188,22 @@ const Reminders = ({ reminders, onAdd, onEdit, onComplete, onDelete }) => {
                   </svg>
                 </button>
                 <button
-                  onClick={() => {
-                    if (window.confirm('Delete this reminder?')) {
-                      onDelete(reminder.id);
+                  type="button"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (await doConfirm('Delete Reminder', 'Are you sure you want to delete this reminder?')) {
+                      try {
+                        await onDelete(reminder.id);
+                      } catch (error) {
+                        console.error('Delete reminder error:', error);
+                        alert('Failed to delete: ' + (error.message || 'Unknown error'));
+                      }
                     }
                   }}
                   className="btn-icon btn-delete"
                   title="Delete reminder"
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ pointerEvents: 'none' }}>
                     <path d="M2 4H14M12.6667 4V13.3333C12.6667 13.687 12.5262 14.0262 12.2761 14.2762C12.0261 14.5263 11.6869 14.6667 11.3333 14.6667H4.66667C4.31305 14.6667 3.97391 14.5263 3.72386 14.2762C3.47381 14.0262 3.33333 13.687 3.33333 13.3333V4M5.33333 4V2.66667C5.33333 2.31305 5.47381 1.97391 5.72386 1.72386C5.97391 1.47381 6.31305 1.33333 6.66667 1.33333H9.33333C9.68696 1.33333 10.0261 1.47381 10.2761 1.72386C10.5262 1.97391 10.6667 2.31305 10.6667 2.66667V4M6.66667 7.33333V11.3333M9.33333 7.33333V11.3333" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
@@ -200,15 +243,22 @@ const Reminders = ({ reminders, onAdd, onEdit, onComplete, onDelete }) => {
                 Reopen
               </button>
               <button
-                onClick={() => {
-                  if (window.confirm('Delete this reminder?')) {
-                    onDelete(reminder.id);
+                type="button"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (await doConfirm('Delete Reminder', 'Are you sure you want to delete this reminder?')) {
+                    try {
+                      await onDelete(reminder.id);
+                    } catch (error) {
+                      console.error('Delete reminder error:', error);
+                      alert('Failed to delete: ' + (error.message || 'Unknown error'));
+                    }
                   }
                 }}
                 className="btn-icon btn-delete"
                 title="Delete reminder"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ pointerEvents: 'none' }}>
                   <path d="M2 4H14M12.6667 4V13.3333C12.6667 13.687 12.5262 14.0262 12.2761 14.2762C12.0261 14.5263 11.6869 14.6667 11.3333 14.6667H4.66667C4.31305 14.6667 3.97391 14.5263 3.72386 14.2762C3.47381 14.0262 3.33333 13.687 3.33333 13.3333V4M5.33333 4V2.66667C5.33333 2.31305 5.47381 1.97391 5.72386 1.72386C5.97391 1.47381 6.31305 1.33333 6.66667 1.33333H9.33333C9.68696 1.33333 10.0261 1.47381 10.2761 1.72386C10.5262 1.97391 10.6667 2.31305 10.6667 2.66667V4M6.66667 7.33333V11.3333M9.33333 7.33333V11.3333" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
