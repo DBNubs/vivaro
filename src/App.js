@@ -44,7 +44,7 @@ function App() {
     isOpen: false,
     currentVersion: '',
     latestVersion: '',
-    releasesUrl: 'https://github.com/DBNubs/vivaro/releases'
+    releasesUrl: 'https://github.com/DBNubs/vivaro/releases/latest'
   });
 
   // Store polling interval reference for cleanup
@@ -346,7 +346,7 @@ function App() {
       } else if (data.latestVersion) {
         // Update available
         const canPerformInApp = data.canPerformInApp === true;
-        const releasesUrl = data.releasesUrl || 'https://github.com/DBNubs/vivaro/releases';
+        const releasesUrl = data.releasesUrl || 'https://github.com/DBNubs/vivaro/releases/latest';
 
         if (canPerformInApp) {
           console.log('Update available, showing in-app update prompt');
@@ -671,7 +671,7 @@ function App() {
               <div className="download-modal-content">
                 <p>Current version: {downloadModal.currentVersion}</p>
                 <p>Latest version: {downloadModal.latestVersion}</p>
-                <p className="download-modal-hint">In-app update is not available for this installation. Please download the latest version from GitHub.</p>
+                <p className="download-modal-hint">In-app update is not available for this installation. Download <strong>Vivaro-Installer.dmg</strong> from the Assets section and open it to install.</p>
                 <div className="download-modal-actions">
                   <button
                     type="button"

@@ -1286,7 +1286,7 @@ app.delete('/api/clients/:id/contacts/:contactId', async (req, res) => {
 });
 
 // Update check and update endpoints
-const GITHUB_RELEASES_URL = 'https://github.com/DBNubs/vivaro/releases';
+const GITHUB_RELEASES_URL = 'https://github.com/DBNubs/vivaro/releases/latest';
 
 function isGitRepository(dir) {
   try {
