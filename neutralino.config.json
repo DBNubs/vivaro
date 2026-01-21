@@ -18,7 +18,8 @@
     "os.*",
     "filesystem.*",
     "extensions.*",
-    "window.*"
+    "window.*",
+    "clipboard.*"
   ],
   "modes": {
     "window": {
