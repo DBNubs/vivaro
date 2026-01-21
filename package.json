@@ -33,6 +33,7 @@
     "icon:convert": "node convert-icon.js",
     "neutralino:update": "npx @neutralinojs/neu update",
     "neutralino:get-binaries": "./get-neutralino-binaries.sh",
+    "neutralino:fix-exit": "./fix-neutralino-exit.sh",
     "neutralino:dev": "node neutralino-main.js & npx @neutralinojs/neu run",
     "neutralino:build": "./build-neutralino.sh",
     "neutralino:installer": "npm run neutralino:build && ./create-macos-installer.sh"

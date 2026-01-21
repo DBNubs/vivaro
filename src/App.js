@@ -5,6 +5,44 @@ import Dashboard from './pages/Dashboard';
 import ClientDetail from './pages/ClientDetail';
 import UpdateProgress from './components/UpdateProgress';
 
+// Workaround for Neutralino #1469: app.exit() on macOS crashes because the native
+// handler runs on a WebSocket thread and touches NSWindow/AppKit (main-thread only).
+// On macOS we defer the call; on other platforms we call app.exit() directly.
+// If the defer still crashes on Mac, the only option is to remove Quit/Cmd+Q and
+// use only the red window close button.
+function quitApplication() {
+  console.log('quitApplication() called');
+  const nl = typeof window !== 'undefined' && window.Neutralino;
+  if (!nl) {
+    console.error('quitApplication: Neutralino not available');
+    return;
+  }
+  if (!nl.app || typeof nl.app.exit !== 'function') {
+    console.error('quitApplication: app.exit() not available', nl.app);
+    return;
+  }
+  const run = () => {
+    console.log('quitApplication: calling app.exit()');
+    try {
+      const result = nl.app.exit();
+      if (result && typeof result.then === 'function') {
+        result.catch((e) => console.error('Error quitting (async):', e));
+      }
+      console.log('quitApplication: app.exit() called successfully');
+    } catch (e) {
+      console.error('Error quitting (sync):', e);
+    }
+  };
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  if (isMac) {
+    console.log('quitApplication: macOS detected, deferring exit by 50ms');
+    setTimeout(run, 50);
+  } else {
+    console.log('quitApplication: non-macOS, calling exit immediately');
+    run();
+  }
+}
+
 // Helper function to show native message box
 async function showMessageBox(title, content, choice = 'OK', icon = 'INFO') {
   if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.os && window.Neutralino.os.showMessageBox) {
@@ -409,6 +447,9 @@ function App() {
                 const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
                 // macOS: 'x' shows as ⌘X; Windows/Linux: 'Ctrl+X' for display
                 const editMenuItems = [
+                  { id: 'undo', text: 'Undo', action: 'undo:', shortcut: isMac ? 'z' : 'Ctrl+Z' },
+                  { id: 'redo', text: 'Redo', action: 'redo:', shortcut: isMac ? 'Shift+Z' : 'Ctrl+Shift+Z' },
+                  { text: '-' },
                   { id: 'cut', text: 'Cut', action: 'cut:', shortcut: isMac ? 'x' : 'Ctrl+X' },
                   { id: 'copy', text: 'Copy', action: 'copy:', shortcut: isMac ? 'c' : 'Ctrl+C' },
                   { id: 'paste', text: 'Paste', action: 'paste:', shortcut: isMac ? 'v' : 'Ctrl+V' },
@@ -418,14 +459,24 @@ function App() {
                   {
                     id: 'vivaro',
                     text: 'Vivaro',
-                    menuItems: [{ id: 'checkForUpdates', text: 'Check for updates...' }]
+                    menuItems: [
+                      { id: 'checkForUpdates', text: 'Check for updates...' },
+                      { text: '-' },
+                      // Don't use action: 'quit:' - on macOS that's handled by the system and won't fire mainMenuItemClicked
+                      // Use just id and let our event handler catch it
+                      { id: 'quit', text: 'Quit', shortcut: isMac ? 'q' : 'Ctrl+Q' }
+                    ]
                   },
                   { id: 'edit', text: 'Edit', menuItems: editMenuItems }
                 ];
                 if (typeof nl.window.setMainMenu === 'function') {
                   nl.window.setMainMenu(menu);
+                  console.log('System menu set via setMainMenu:', menu);
                 } else if (typeof nl.window.setMenu === 'function') {
                   nl.window.setMenu(menu);
+                  console.log('System menu set via setMenu:', menu);
+                } else {
+                  console.error('No menu setting function available');
                 }
               } catch (e) {
                 console.error('Could not set up system menu:', e);
@@ -434,15 +485,29 @@ function App() {
 
             // Listen for menu actions
             nl.events.on('mainMenuItemClicked', async (event) => {
-              const id = event.detail?.id;
-              // Edit menu: cut, copy, paste, selectAll (for Neutralino WebView where shortcuts may not work)
-              if (['cut', 'copy', 'paste', 'selectAll'].includes(id)) {
+              console.log('mainMenuItemClicked event:', event);
+              const rawId = event.detail?.id;
+              const rawAction = event.detail?.action;
+              const id = rawId ?? (rawAction || '').replace(/:$/, '');
+              console.log('Menu item - raw id:', rawId, 'raw action:', rawAction, 'processed id:', id, 'Full detail:', event.detail);
+
+              // Check for quit in multiple formats
+              const isQuit = id === 'quit' || rawAction === 'quit:' || rawId === 'quit' ||
+                            (rawAction && rawAction.toLowerCase().includes('quit'));
+
+              // Edit menu: undo, redo, cut, copy, paste, selectAll (for Neutralino WebView where shortcuts may not work)
+              if (['undo', 'redo', 'cut', 'copy', 'paste', 'selectAll'].includes(id)) {
                 try {
                   const cmd = id === 'selectAll' ? 'selectAll' : id;
                   document.execCommand(cmd);
                 } catch (e) {
                   console.error(`Error executing ${id}:`, e);
                 }
+                return;
+              }
+              if (isQuit) {
+                console.log('Quit menu item clicked (detected via mainMenuItemClicked), calling quitApplication()');
+                quitApplication();
                 return;
               }
               if (id === 'checkForUpdates') {
@@ -457,14 +522,28 @@ function App() {
 
             // Also try menuItemClicked as fallback
             nl.events.on('menuItemClicked', async (event) => {
-              const id = event.detail?.id ?? event.detail?.action;
-              if (['cut', 'copy', 'paste', 'selectAll'].includes(id)) {
+              console.log('menuItemClicked event:', event);
+              const rawId = event.detail?.id;
+              const rawAction = event.detail?.action;
+              const id = rawId ?? (rawAction || '').replace(/:$/, '');
+              console.log('Menu item - raw id:', rawId, 'raw action:', rawAction, 'processed id:', id, 'Full detail:', event.detail);
+
+              // Check for quit in multiple formats
+              const isQuit = id === 'quit' || rawAction === 'quit:' || rawId === 'quit' ||
+                            (rawAction && rawAction.toLowerCase().includes('quit'));
+
+              if (['undo', 'redo', 'cut', 'copy', 'paste', 'selectAll'].includes(id)) {
                 try {
                   const cmd = id === 'selectAll' ? 'selectAll' : id;
                   document.execCommand(cmd);
                 } catch (e) {
                   console.error(`Error executing ${id}:`, e);
                 }
+                return;
+              }
+              if (isQuit) {
+                console.log('Quit menu item clicked (detected via menuItemClicked), calling quitApplication()');
+                quitApplication();
                 return;
               }
               if (id === 'checkForUpdates') {
@@ -518,14 +597,14 @@ function App() {
         if (nl.events && typeof nl.events.on === 'function') {
           // Try to listen for window events
           try {
-            // Listen for window close requests
+            // Listen for window close requests (when exitProcessOnClose is false)
             nl.events.on('windowClose', () => {
-              nl.app.exit();
+              quitApplication();
             });
 
             // Also try 'close' event
             nl.events.on('close', () => {
-              nl.app.exit();
+              quitApplication();
             });
           } catch (e) {
             // Silently fail if events can't be set up
@@ -542,52 +621,37 @@ function App() {
 
       // Cmd+W or Ctrl+W: Close window (only in Neutralino)
       if (modifier && key === 'w' && !event.shiftKey && !event.altKey) {
-        // Check directly each time instead of relying on isNeutralinoReady
         if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.app) {
           event.preventDefault();
           event.stopPropagation();
-          try {
-            // Try with await first (if API is async)
-            const result = window.Neutralino.app.exit();
-            if (result && typeof result.then === 'function') {
-              await result;
-            }
-          } catch (error) {
-            console.error('Error closing window:', error);
-            // Fallback: try calling directly
-            try {
-              window.Neutralino.app.exit();
-            } catch (e) {
-              console.error('Fallback exit also failed:', e);
-            }
-          }
+          quitApplication();
           return false;
         }
       }
 
       // Cmd+Q or Ctrl+Q: Quit application (only in Neutralino)
       if (modifier && key === 'q' && !event.shiftKey && !event.altKey) {
-        // Check directly each time instead of relying on isNeutralinoReady
         if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.app) {
           event.preventDefault();
           event.stopPropagation();
-          try {
-            // Try with await first (if API is async)
-            const result = window.Neutralino.app.exit();
-            if (result && typeof result.then === 'function') {
-              await result;
-            }
-          } catch (error) {
-            console.error('Error quitting app:', error);
-            // Fallback: try calling directly
-            try {
-              window.Neutralino.app.exit();
-            } catch (e) {
-              console.error('Fallback exit also failed:', e);
-            }
-          }
+          quitApplication();
           return false;
         }
+      }
+
+      // Cmd+Z / Ctrl+Z: Undo; Cmd+Shift+Z / Ctrl+Shift+Z: Redo
+      if (modifier && key === 'z' && !event.altKey) {
+        if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.app) {
+          const cmd = event.shiftKey ? 'redo' : 'undo';
+          try {
+            document.execCommand(cmd);
+          } catch (e) {
+            console.error(`Error executing ${cmd}:`, e);
+          }
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        return;
       }
 
       // Cmd+C, Cmd+V, Cmd+X, Cmd+A: Copy, paste, cut, select all
