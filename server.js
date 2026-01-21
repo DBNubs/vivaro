@@ -1707,18 +1707,19 @@ app.post('/api/updates/perform', async (req, res) => {
           // Handle packaged app update: download DMG, mount, copy app bundle, restart
           console.log('Detected packaged app - performing DMG-based update');
 
-          // Find DMG asset
-          const dmgAsset = latestRelease.assets?.find(asset =>
-            asset.name && asset.name.toLowerCase().endsWith('.dmg')
-          );
+          try {
+            // Find DMG asset
+            const dmgAsset = latestRelease.assets?.find(asset =>
+              asset.name && asset.name.toLowerCase().endsWith('.dmg')
+            );
 
-          if (!dmgAsset || !dmgAsset.browser_download_url) {
-            updateProgress.status = 'error';
-            updateProgress.progress = 0;
-            updateProgress.message = '';
-            updateProgress.error = `No DMG installer found in release ${targetTag}.\n\nPlease download manually from:\n${GITHUB_RELEASES_URL}`;
-            return;
-          }
+            if (!dmgAsset || !dmgAsset.browser_download_url) {
+              updateProgress.status = 'error';
+              updateProgress.progress = 0;
+              updateProgress.message = '';
+              updateProgress.error = `No DMG installer found in release ${targetTag}.\n\nPlease download manually from:\n${GITHUB_RELEASES_URL}`;
+              return;
+            }
 
           // Step 1: Download DMG
           updateProgress.progress = 10;
@@ -1792,11 +1793,46 @@ app.post('/api/updates/perform', async (req, res) => {
           });
 
           // Extract mount point from output (format: /dev/diskXsY    /Volumes/VolumeName)
-          const mountMatch = mountResult.stdout.match(/\/Volumes\/([^\s]+)/);
-          if (!mountMatch) {
-            throw new Error('Failed to mount DMG - could not find mount point');
+          // hdiutil output can vary, try multiple patterns
+          let mountPoint = null;
+          const mountPatterns = [
+            /\/Volumes\/([^\s\n]+)/,  // Standard format
+            /(\/Volumes\/[^\s\n]+)/,   // Alternative format
+            /attached\s+as\s+(\/Volumes\/[^\s\n]+)/i  // "attached as" format
+          ];
+
+          for (const pattern of mountPatterns) {
+            const match = mountResult.stdout.match(pattern);
+            if (match) {
+              mountPoint = match[1] || match[0];
+              break;
+            }
           }
-          const mountPoint = mountMatch[0];
+
+          if (!mountPoint || !fsSync.existsSync(mountPoint)) {
+            // Try to find mounted volumes manually
+            try {
+              const { stdout: volumesOutput } = await execAsync('ls -1 /Volumes', {
+                maxBuffer: 10 * 1024 * 1024
+              });
+              const volumes = volumesOutput.trim().split('\n');
+              // Look for a volume that was just mounted (contains Vivaro or similar)
+              const vivaroVolume = volumes.find(v =>
+                v.toLowerCase().includes('vivaro') ||
+                v.toLowerCase().includes('installer')
+              );
+              if (vivaroVolume) {
+                mountPoint = `/Volumes/${vivaroVolume}`;
+              }
+            } catch (e) {
+              console.warn('Could not list volumes:', e.message);
+            }
+
+            if (!mountPoint || !fsSync.existsSync(mountPoint)) {
+              throw new Error(`Failed to mount DMG - could not find mount point. Output: ${mountResult.stdout}`);
+            }
+          }
+
           console.log('DMG mounted at:', mountPoint);
 
           // Step 3: Find the .app bundle in the mounted DMG
@@ -1901,14 +1937,25 @@ app.post('/api/updates/perform', async (req, res) => {
           }, 2000);
 
           return;
+          } catch (packagedUpdateError) {
+            console.error('Error during packaged app update:', packagedUpdateError);
+            updateProgress.status = 'error';
+            updateProgress.progress = 0;
+            updateProgress.message = '';
+            updateProgress.error = `Update failed: ${packagedUpdateError.message}\n\nPlease try downloading manually from:\n${GITHUB_RELEASES_URL}`;
+            return;
+          }
         }
 
-        // Original git-based update logic for dev copies
+        // Original git-based update logic for dev copies (only reached if isPackagedApp was false)
+        // This means we have a dev copy with git
         if (!isGitRepository(__dirname)) {
+          // This shouldn't happen - we already checked isPackagedApp above
+          // But just in case, provide a helpful error
           updateProgress.status = 'error';
           updateProgress.progress = 0;
           updateProgress.message = '';
-          updateProgress.error = `In-app updates are only available when running from a development copy of the source. This installation does not have access to the Git repository.\n\nPlease download the latest version from:\n${GITHUB_RELEASES_URL}`;
+          updateProgress.error = `Unable to perform update. This installation does not have access to Git and no DMG installer was found.\n\nPlease download the latest version from:\n${GITHUB_RELEASES_URL}`;
           return;
         }
 
