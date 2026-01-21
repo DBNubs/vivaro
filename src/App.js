@@ -403,57 +403,28 @@ function App() {
           window.Neutralino.events.on('ready', () => {
             const nl = window.Neutralino;
 
-            // Set up system menu
+            // Set up system menu (Vivaro + Edit with Cut, Copy, Paste, Select All)
             if (nl.window) {
               try {
-                // Try different menu API methods based on Neutralino version
+                const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                // macOS: 'x' shows as ⌘X; Windows/Linux: 'Ctrl+X' for display
+                const editMenuItems = [
+                  { id: 'cut', text: 'Cut', action: 'cut:', shortcut: isMac ? 'x' : 'Ctrl+X' },
+                  { id: 'copy', text: 'Copy', action: 'copy:', shortcut: isMac ? 'c' : 'Ctrl+C' },
+                  { id: 'paste', text: 'Paste', action: 'paste:', shortcut: isMac ? 'v' : 'Ctrl+V' },
+                  { id: 'selectAll', text: 'Select All', action: 'selectAll:', shortcut: isMac ? 'a' : 'Ctrl+A' }
+                ];
+                const menu = [
+                  {
+                    id: 'vivaro',
+                    text: 'Vivaro',
+                    menuItems: [{ id: 'checkForUpdates', text: 'Check for updates...' }]
+                  },
+                  { id: 'edit', text: 'Edit', menuItems: editMenuItems }
+                ];
                 if (typeof nl.window.setMainMenu === 'function') {
-                  const menu = [
-                    {
-                      id: 'vivaro',
-                      text: 'Vivaro',
-                      menuItems: [
-                        {
-                          id: 'checkForUpdates',
-                          text: 'Check for updates...'
-                        }
-                      ]
-                    },
-                    {
-                      id: 'edit',
-                      text: 'Edit',
-                      menuItems: [
-                        { id: 'cut', text: 'Cut', action: 'cut:', shortcut: 'x' },
-                        { id: 'copy', text: 'Copy', action: 'copy:', shortcut: 'c' },
-                        { id: 'paste', text: 'Paste', action: 'paste:', shortcut: 'v' },
-                        { id: 'selectAll', text: 'Select All', action: 'selectAll:', shortcut: 'a' }
-                      ]
-                    }
-                  ];
                   nl.window.setMainMenu(menu);
                 } else if (typeof nl.window.setMenu === 'function') {
-                  const menu = [
-                    {
-                      id: 'vivaro',
-                      text: 'Vivaro',
-                      menuItems: [
-                        {
-                          id: 'checkForUpdates',
-                          text: 'Check for updates...'
-                        }
-                      ]
-                    },
-                    {
-                      id: 'edit',
-                      text: 'Edit',
-                      menuItems: [
-                        { id: 'cut', text: 'Cut', action: 'cut:', shortcut: 'x' },
-                        { id: 'copy', text: 'Copy', action: 'copy:', shortcut: 'c' },
-                        { id: 'paste', text: 'Paste', action: 'paste:', shortcut: 'v' },
-                        { id: 'selectAll', text: 'Select All', action: 'selectAll:', shortcut: 'a' }
-                      ]
-                    }
-                  ];
                   nl.window.setMenu(menu);
                 }
               } catch (e) {
