@@ -403,37 +403,28 @@ function App() {
           window.Neutralino.events.on('ready', () => {
             const nl = window.Neutralino;
 
-            // Set up system menu
+            // Set up system menu (Vivaro + Edit with Cut, Copy, Paste, Select All)
             if (nl.window) {
               try {
-                // Try different menu API methods based on Neutralino version
+                const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                // macOS: 'x' shows as ⌘X; Windows/Linux: 'Ctrl+X' for display
+                const editMenuItems = [
+                  { id: 'cut', text: 'Cut', action: 'cut:', shortcut: isMac ? 'x' : 'Ctrl+X' },
+                  { id: 'copy', text: 'Copy', action: 'copy:', shortcut: isMac ? 'c' : 'Ctrl+C' },
+                  { id: 'paste', text: 'Paste', action: 'paste:', shortcut: isMac ? 'v' : 'Ctrl+V' },
+                  { id: 'selectAll', text: 'Select All', action: 'selectAll:', shortcut: isMac ? 'a' : 'Ctrl+A' }
+                ];
+                const menu = [
+                  {
+                    id: 'vivaro',
+                    text: 'Vivaro',
+                    menuItems: [{ id: 'checkForUpdates', text: 'Check for updates...' }]
+                  },
+                  { id: 'edit', text: 'Edit', menuItems: editMenuItems }
+                ];
                 if (typeof nl.window.setMainMenu === 'function') {
-                  const menu = [
-                    {
-                      id: 'vivaro',
-                      text: 'Vivaro',
-                      menuItems: [
-                        {
-                          id: 'checkForUpdates',
-                          text: 'Check for updates...'
-                        }
-                      ]
-                    }
-                  ];
                   nl.window.setMainMenu(menu);
                 } else if (typeof nl.window.setMenu === 'function') {
-                  const menu = [
-                    {
-                      id: 'vivaro',
-                      text: 'Vivaro',
-                      menuItems: [
-                        {
-                          id: 'checkForUpdates',
-                          text: 'Check for updates...'
-                        }
-                      ]
-                    }
-                  ];
                   nl.window.setMenu(menu);
                 }
               } catch (e) {
@@ -443,7 +434,18 @@ function App() {
 
             // Listen for menu actions
             nl.events.on('mainMenuItemClicked', async (event) => {
-              if (event.detail && event.detail.id === 'checkForUpdates') {
+              const id = event.detail?.id;
+              // Edit menu: cut, copy, paste, selectAll (for Neutralino WebView where shortcuts may not work)
+              if (['cut', 'copy', 'paste', 'selectAll'].includes(id)) {
+                try {
+                  const cmd = id === 'selectAll' ? 'selectAll' : id;
+                  document.execCommand(cmd);
+                } catch (e) {
+                  console.error(`Error executing ${id}:`, e);
+                }
+                return;
+              }
+              if (id === 'checkForUpdates') {
                 try {
                   await checkForUpdates();
                 } catch (error) {
@@ -455,7 +457,17 @@ function App() {
 
             // Also try menuItemClicked as fallback
             nl.events.on('menuItemClicked', async (event) => {
-              if (event.detail && (event.detail.id === 'checkForUpdates' || event.detail.action === 'checkForUpdates')) {
+              const id = event.detail?.id ?? event.detail?.action;
+              if (['cut', 'copy', 'paste', 'selectAll'].includes(id)) {
+                try {
+                  const cmd = id === 'selectAll' ? 'selectAll' : id;
+                  document.execCommand(cmd);
+                } catch (e) {
+                  console.error(`Error executing ${id}:`, e);
+                }
+                return;
+              }
+              if (id === 'checkForUpdates') {
                 try {
                   await checkForUpdates();
                 } catch (error) {
@@ -578,11 +590,19 @@ function App() {
         }
       }
 
-      // For copy/paste/cut/select all, ensure they work everywhere
-      // These should work by default, but we make sure they're not blocked
-      if (modifier && ['c', 'v', 'x', 'a'].includes(key)) {
-        // Don't prevent default - let browser/webview handle it
-        // This ensures shortcuts work in text inputs and contenteditable areas
+      // Cmd+C, Cmd+V, Cmd+X, Cmd+A: Copy, paste, cut, select all
+      // In Neutralino's WebView on macOS these often don't work; run execCommand explicitly.
+      if (modifier && ['c', 'v', 'x', 'a'].includes(key) && !event.shiftKey && !event.altKey) {
+        if (typeof window !== 'undefined' && window.Neutralino && window.Neutralino.app) {
+          const cmd = { c: 'copy', v: 'paste', x: 'cut', a: 'selectAll' }[key];
+          try {
+            document.execCommand(cmd);
+          } catch (e) {
+            console.error(`Error executing ${cmd}:`, e);
+          }
+          event.preventDefault();
+          event.stopPropagation();
+        }
         return;
       }
     };
