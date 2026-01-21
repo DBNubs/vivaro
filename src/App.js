@@ -82,7 +82,9 @@ function App() {
     isOpen: false,
     currentVersion: '',
     latestVersion: '',
-    releasesUrl: 'https://github.com/DBNubs/vivaro/releases/latest'
+    releasesUrl: 'https://github.com/DBNubs/vivaro/releases/latest',
+    dmgDownloadUrl: null,
+    isDownloading: false
   });
 
   // Store polling interval reference for cleanup
@@ -400,7 +402,9 @@ function App() {
             isOpen: true,
             currentVersion: data.currentVersion,
             latestVersion: data.latestVersion,
-            releasesUrl
+            releasesUrl,
+            dmgDownloadUrl: data.dmgDownloadUrl || null,
+            isDownloading: false
           });
         }
       } else {
@@ -423,6 +427,81 @@ function App() {
       );
     }
   }, [performUpdate]);
+
+  // Function to download and open DMG installer
+  const downloadAndInstallDmg = useCallback(async () => {
+    try {
+      setDownloadModal(prev => ({ ...prev, isDownloading: true }));
+
+      const response = await fetch('http://localhost:3001/api/updates/download-dmg', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to download DMG');
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.path) {
+        // Open the DMG file
+        try {
+          if (window.Neutralino?.os?.execCommand) {
+            // Use Neutralino to open the DMG
+            await window.Neutralino.os.execCommand({
+              command: 'open',
+              args: [result.path]
+            });
+          } else if (window.Neutralino?.os?.open) {
+            // Fallback: try os.open
+            await window.Neutralino.os.open(result.path);
+          } else {
+            // Browser fallback: show message
+            await showMessageBox(
+              'Download Complete',
+              `The installer has been downloaded to:\n${result.path}\n\nPlease open it to install the update.`,
+              'OK',
+              'INFO'
+            );
+          }
+
+          // Close the modal
+          setDownloadModal(prev => ({ ...prev, isOpen: false, isDownloading: false }));
+
+          await showMessageBox(
+            'Installer Opening',
+            `The installer "${result.name}" is opening. Please follow the installation instructions.\n\nAfter installation, restart the application to use the new version.`,
+            'OK',
+            'INFO'
+          );
+        } catch (openError) {
+          console.error('Error opening DMG:', openError);
+          await showMessageBox(
+            'Download Complete',
+            `The installer has been downloaded to:\n${result.path}\n\nPlease open it manually to install the update.`,
+            'OK',
+            'INFO'
+          );
+          setDownloadModal(prev => ({ ...prev, isDownloading: false }));
+        }
+      } else {
+        throw new Error('Unexpected response from server');
+      }
+    } catch (error) {
+      console.error('Error downloading DMG:', error);
+      await showMessageBox(
+        'Download Failed',
+        `Failed to download installer: ${error.message}\n\nPlease download manually from GitHub.`,
+        'OK',
+        'ERROR'
+      );
+      setDownloadModal(prev => ({ ...prev, isDownloading: false }));
+    }
+  }, []);
 
   useEffect(() => {
     let isNeutralinoReady = false;
@@ -757,6 +836,16 @@ function App() {
                 <p>Latest version: {downloadModal.latestVersion}</p>
                 <p className="download-modal-hint">In-app update is not available for this installation. Download <strong>Vivaro-Installer.dmg</strong> from the Assets section and open it to install.</p>
                 <div className="download-modal-actions">
+                  {downloadModal.dmgDownloadUrl && (
+                    <button
+                      type="button"
+                      className="btn-download-install"
+                      onClick={downloadAndInstallDmg}
+                      disabled={downloadModal.isDownloading}
+                    >
+                      {downloadModal.isDownloading ? 'Downloading...' : 'Download & Install'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn-open-releases"

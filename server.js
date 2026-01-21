@@ -1368,7 +1368,8 @@ async function getLatestGitHubRelease() {
               tag: release.tag_name,
               name: release.name,
               published_at: release.published_at,
-              body: release.body
+              body: release.body,
+              assets: release.assets || []
             });
           } catch (e) {
             reject(new Error('Failed to parse GitHub API response'));
@@ -1475,12 +1476,19 @@ app.get('/api/updates/check', async (req, res) => {
       const normalizedLatest = normalizeVersion(latestRelease.tag);
       const isUpToDate = normalizedCurrent === normalizedLatest;
 
+      // Find DMG asset in release
+      const dmgAsset = latestRelease.assets?.find(asset =>
+        asset.name && asset.name.toLowerCase().endsWith('.dmg')
+      );
+
       res.json({
         currentVersion,
         latestVersion: latestRelease.tag,
         isUpToDate,
         canPerformInApp: isGitRepository(__dirname),
         releasesUrl: GITHUB_RELEASES_URL,
+        dmgDownloadUrl: dmgAsset?.browser_download_url || null,
+        dmgAssetName: dmgAsset?.name || null,
         releaseInfo: {
           name: latestRelease.name,
           published_at: latestRelease.published_at,
@@ -1538,6 +1546,99 @@ app.get('/api/updates/status', (req, res) => {
       progress: 0,
       message: 'Error retrieving update status',
       error: error.message
+    });
+  }
+});
+
+// POST /api/updates/download-dmg - Download DMG installer from GitHub
+app.post('/api/updates/download-dmg', async (req, res) => {
+  try {
+    // Get the latest release to find DMG asset
+    const latestRelease = await getLatestGitHubRelease();
+    const dmgAsset = latestRelease.assets?.find(asset =>
+      asset.name && asset.name.toLowerCase().endsWith('.dmg')
+    );
+
+    if (!dmgAsset || !dmgAsset.browser_download_url) {
+      return res.status(404).json({
+        error: 'DMG installer not found',
+        message: 'No DMG installer found in the latest release. Please download manually from GitHub.'
+      });
+    }
+
+    // Get user's Downloads folder
+    const downloadsPath = path.join(os.homedir(), 'Downloads');
+    const dmgPath = path.join(downloadsPath, dmgAsset.name);
+
+    // Check if file already exists
+    if (fsSync.existsSync(dmgPath)) {
+      // File exists, return path to open it
+      return res.json({
+        success: true,
+        message: 'DMG already downloaded',
+        path: dmgPath,
+        name: dmgAsset.name,
+        action: 'open'
+      });
+    }
+
+    // Download the DMG file
+    try {
+      await new Promise((resolve, reject) => {
+        const file = fsSync.createWriteStream(dmgPath);
+
+        https.get(dmgAsset.browser_download_url, (response) => {
+          if (response.statusCode !== 200) {
+            file.close();
+            if (fsSync.existsSync(dmgPath)) {
+              fsSync.unlinkSync(dmgPath); // Delete partial file
+            }
+            reject(new Error(`Failed to download DMG: ${response.statusCode}`));
+            return;
+          }
+
+          response.pipe(file);
+
+          file.on('finish', () => {
+            file.close();
+            resolve();
+          });
+
+          file.on('error', (err) => {
+            file.close();
+            if (fsSync.existsSync(dmgPath)) {
+              fsSync.unlinkSync(dmgPath); // Delete partial file
+            }
+            reject(err);
+          });
+        }).on('error', (err) => {
+          file.close();
+          if (fsSync.existsSync(dmgPath)) {
+            fsSync.unlinkSync(dmgPath); // Delete partial file
+          }
+          reject(err);
+        });
+      });
+
+      res.json({
+        success: true,
+        message: 'DMG downloaded successfully',
+        path: dmgPath,
+        name: dmgAsset.name,
+        action: 'open'
+      });
+    } catch (downloadError) {
+      console.error('Error downloading DMG:', downloadError);
+      res.status(500).json({
+        error: 'Failed to download DMG',
+        message: downloadError.message
+      });
+    }
+  } catch (error) {
+    console.error('Error in download-dmg endpoint:', error);
+    res.status(500).json({
+      error: 'Failed to download DMG',
+      message: error.message
     });
   }
 });
