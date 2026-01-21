@@ -4,6 +4,7 @@ import './App.css';
 import Dashboard from './pages/Dashboard';
 import ClientDetail from './pages/ClientDetail';
 import UpdateProgress from './components/UpdateProgress';
+import { openExternalLink } from './utils/browser';
 
 // Workaround for Neutralino #1469: app.exit() on macOS crashes because the native
 // handler runs on a WebSocket thread and touches NSWindow/AppKit (main-thread only).
@@ -449,11 +450,7 @@ function App() {
           // For now, just open the download URL in browser/Neutralino
           // The user will need to manually open the downloaded file
           try {
-            if (window.Neutralino?.os?.open) {
-              await window.Neutralino.os.open(dmgUrl);
-            } else {
-              window.open(dmgUrl, '_blank');
-            }
+            await openExternalLink(dmgUrl);
             await showMessageBox(
               'Download Started',
               'The installer download has started in your browser.\n\nAfter it finishes downloading, please open it to install the update.',
@@ -871,17 +868,7 @@ function App() {
                   <button
                     type="button"
                     className="btn-open-releases"
-                    onClick={() => {
-                      try {
-                        if (window.Neutralino?.os?.open) {
-                          window.Neutralino.os.open(downloadModal.releasesUrl);
-                        } else {
-                          window.open(downloadModal.releasesUrl, '_blank');
-                        }
-                      } catch (e) {
-                        window.open(downloadModal.releasesUrl, '_blank');
-                      }
-                    }}
+                    onClick={() => openExternalLink(downloadModal.releasesUrl)}
                   >
                     Open Releases Page
                   </button>

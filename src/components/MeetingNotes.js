@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './MeetingNotes.css';
+import { openExternalLink } from '../utils/browser';
 
 const MeetingNotes = ({ notes, onEdit, onDelete, onCreateFolder, onDeleteFolder, onMoveNote, onSelectedFolderChange, confirmDialog }) => {
   const doConfirm = async (title, message) => {
@@ -546,6 +547,18 @@ const MeetingNotes = ({ notes, onEdit, onDelete, onCreateFolder, onDeleteFolder,
                         <div
                           className="meeting-note-text"
                           dangerouslySetInnerHTML={{ __html: note.content || '' }}
+                          onClick={(e) => {
+                            // Intercept clicks on links in rich text content
+                            const anchor = e.target.closest('a');
+                            if (anchor && anchor.href) {
+                              // Skip mailto: links and internal links
+                              if (!anchor.href.startsWith('mailto:') && !anchor.href.startsWith('#') && !anchor.href.startsWith(window.location.origin)) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openExternalLink(anchor.href);
+                              }
+                            }
+                          }}
                         />
                       </div>
                     )}
@@ -805,6 +818,18 @@ const FolderNode = ({ folderName, folderData, expandedFolders, toggleFolder, exp
                   <div
                     className="meeting-note-text"
                     dangerouslySetInnerHTML={{ __html: note.content || '' }}
+                    onClick={(e) => {
+                      // Intercept clicks on links in rich text content
+                      const anchor = e.target.closest('a');
+                      if (anchor && anchor.href) {
+                        // Skip mailto: links and internal links
+                        if (!anchor.href.startsWith('mailto:') && !anchor.href.startsWith('#') && !anchor.href.startsWith(window.location.origin)) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openExternalLink(anchor.href);
+                        }
+                      }
+                    }}
                   />
                 </div>
               )}
