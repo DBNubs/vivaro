@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Resources.css';
+import { handleExternalLinkClick } from '../utils/browser';
 
 const Resources = ({ resources, onAddLink, onAddFile, onEdit, onDelete, onCreateFolder, onDeleteFolder, onMoveResource, onSelectedFolderChange }) => {
   const [showAddLinkForm, setShowAddLinkForm] = useState(false);
@@ -643,9 +644,9 @@ const Resources = ({ resources, onAddLink, onAddFile, onEdit, onDelete, onCreate
                   <div className="resource-info">
                     <a
                       href={resource.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      onClick={(e) => handleExternalLinkClick(e, resource.url)}
                       className="resource-title"
+                      style={{ cursor: 'pointer' }}
                     >
                       {resource.title}
                     </a>
