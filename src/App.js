@@ -384,28 +384,13 @@ function App() {
           'INFO'
         );
       } else if (data.latestVersion) {
-        // Update available
-        const canPerformInApp = data.canPerformInApp === true;
-        const releasesUrl = data.releasesUrl || 'https://github.com/DBNubs/vivaro/releases/latest';
+        // Update available - always offer in-app update (works for both dev and packaged apps now)
+        console.log('Update available, showing in-app update prompt');
+        const updateMessage = `Update available!\n\nCurrent version: ${data.currentVersion}\nLatest version: ${data.latestVersion}\n\nWould you like to update now?`;
+        const result = await showMessageBox('Update Available', updateMessage, 'YES_NO', 'QUESTION');
 
-        if (canPerformInApp) {
-          console.log('Update available, showing in-app update prompt');
-          const updateMessage = `Update available!\n\nCurrent version: ${data.currentVersion}\nLatest version: ${data.latestVersion}\n\nWould you like to update now?`;
-          const result = await showMessageBox('Update Available', updateMessage, 'YES_NO', 'QUESTION');
-
-          if (result === 'YES') {
-            await performUpdate();
-          }
-        } else {
-          console.log('Update available, in-app update not supported — showing download modal');
-          setDownloadModal({
-            isOpen: true,
-            currentVersion: data.currentVersion,
-            latestVersion: data.latestVersion,
-            releasesUrl,
-            dmgDownloadUrl: data.dmgDownloadUrl || null,
-            isDownloading: false
-          });
+        if (result === 'YES') {
+          await performUpdate();
         }
       } else {
         // Fallback - shouldn't happen but just in case
@@ -433,19 +418,56 @@ function App() {
     try {
       setDownloadModal(prev => ({ ...prev, isDownloading: true }));
 
-      const response = await fetch('http://localhost:3001/api/updates/download-dmg', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+      // Try the server endpoint first (new code)
+      let result;
+      try {
+        const response = await fetch('http://localhost:3001/api/updates/download-dmg', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          result = await response.json();
+        } else if (response.status === 404) {
+          // Server endpoint doesn't exist (old server code) - use direct download
+          throw new Error('ENDPOINT_NOT_FOUND');
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to download DMG');
         }
-      });
+      } catch (fetchError) {
+        // If endpoint doesn't exist or fails, download directly from GitHub
+        if (fetchError.message === 'ENDPOINT_NOT_FOUND' || fetchError.message.includes('Failed to fetch')) {
+          console.log('Server endpoint not available, downloading directly from GitHub');
+          const dmgUrl = downloadModal.dmgDownloadUrl;
+          if (!dmgUrl) {
+            throw new Error('DMG download URL not available');
+          }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to download DMG');
+          // For now, just open the download URL in browser/Neutralino
+          // The user will need to manually open the downloaded file
+          try {
+            if (window.Neutralino?.os?.open) {
+              await window.Neutralino.os.open(dmgUrl);
+            } else {
+              window.open(dmgUrl, '_blank');
+            }
+            await showMessageBox(
+              'Download Started',
+              'The installer download has started in your browser.\n\nAfter it finishes downloading, please open it to install the update.',
+              'OK',
+              'INFO'
+            );
+            setDownloadModal(prev => ({ ...prev, isOpen: false, isDownloading: false }));
+            return;
+          } catch (openError) {
+            throw new Error(`Failed to open download URL: ${openError.message}`);
+          }
+        }
+        throw fetchError;
       }
-
-      const result = await response.json();
 
       if (result.success && result.path) {
         // Open the DMG file

@@ -1481,11 +1481,16 @@ app.get('/api/updates/check', async (req, res) => {
         asset.name && asset.name.toLowerCase().endsWith('.dmg')
       );
 
+      console.log('Release assets:', latestRelease.assets?.map(a => a.name) || 'none');
+      console.log('DMG asset found:', dmgAsset ? dmgAsset.name : 'none');
+      console.log('DMG download URL:', dmgAsset?.browser_download_url || 'none');
+
       res.json({
         currentVersion,
         latestVersion: latestRelease.tag,
         isUpToDate,
-        canPerformInApp: isGitRepository(__dirname),
+        // In-app updates now work for both dev copies (git) and packaged apps (DMG-based)
+        canPerformInApp: true,
         releasesUrl: GITHUB_RELEASES_URL,
         dmgDownloadUrl: dmgAsset?.browser_download_url || null,
         dmgAssetName: dmgAsset?.name || null,
@@ -1503,7 +1508,7 @@ app.get('/api/updates/check', async (req, res) => {
         currentVersion,
         latestVersion: null,
         isUpToDate: true, // Assume up to date if we can't check
-        canPerformInApp: isGitRepository(__dirname),
+        canPerformInApp: true, // In-app updates work for both dev and packaged apps
         releasesUrl: GITHUB_RELEASES_URL,
         error: 'Unable to check for updates',
         message: 'Could not connect to GitHub to check for updates. This may be because the repository is private or there are no releases/tags available.',
@@ -1695,7 +1700,210 @@ app.post('/api/updates/perform', async (req, res) => {
         const targetTag = latestRelease.tag;
         console.log(`Target tag for update: ${targetTag}`);
 
-        // In-app update requires a git repository. Packaged/installed apps don't have .git.
+        // Check if this is a packaged app (no git) or dev copy (has git)
+        const isPackagedApp = !isGitRepository(__dirname);
+
+        if (isPackagedApp) {
+          // Handle packaged app update: download DMG, mount, copy app bundle, restart
+          console.log('Detected packaged app - performing DMG-based update');
+
+          // Find DMG asset
+          const dmgAsset = latestRelease.assets?.find(asset =>
+            asset.name && asset.name.toLowerCase().endsWith('.dmg')
+          );
+
+          if (!dmgAsset || !dmgAsset.browser_download_url) {
+            updateProgress.status = 'error';
+            updateProgress.progress = 0;
+            updateProgress.message = '';
+            updateProgress.error = `No DMG installer found in release ${targetTag}.\n\nPlease download manually from:\n${GITHUB_RELEASES_URL}`;
+            return;
+          }
+
+          // Step 1: Download DMG
+          updateProgress.progress = 10;
+          updateProgress.message = 'Downloading installer...';
+          console.log('Downloading DMG from:', dmgAsset.browser_download_url);
+
+          const downloadsPath = path.join(os.homedir(), 'Downloads');
+          const dmgPath = path.join(downloadsPath, dmgAsset.name);
+
+          // Delete existing DMG if present
+          if (fsSync.existsSync(dmgPath)) {
+            fsSync.unlinkSync(dmgPath);
+          }
+
+          // Download the DMG
+          await new Promise((resolve, reject) => {
+            const file = fsSync.createWriteStream(dmgPath);
+
+            https.get(dmgAsset.browser_download_url, (response) => {
+              if (response.statusCode !== 200) {
+                file.close();
+                if (fsSync.existsSync(dmgPath)) {
+                  fsSync.unlinkSync(dmgPath);
+                }
+                reject(new Error(`Failed to download DMG: ${response.statusCode}`));
+                return;
+              }
+
+              const totalSize = parseInt(response.headers['content-length'] || '0', 10);
+              let downloadedSize = 0;
+
+              response.on('data', (chunk) => {
+                downloadedSize += chunk.length;
+                if (totalSize > 0) {
+                  const percent = Math.min(90, 10 + (downloadedSize / totalSize) * 80);
+                  updateProgress.progress = Math.round(percent);
+                  updateProgress.message = `Downloading installer... ${Math.round((downloadedSize / totalSize) * 100)}%`;
+                }
+              });
+
+              response.pipe(file);
+
+              file.on('finish', () => {
+                file.close();
+                resolve();
+              });
+
+              file.on('error', (err) => {
+                file.close();
+                if (fsSync.existsSync(dmgPath)) {
+                  fsSync.unlinkSync(dmgPath);
+                }
+                reject(err);
+              });
+            }).on('error', (err) => {
+              file.close();
+              if (fsSync.existsSync(dmgPath)) {
+                fsSync.unlinkSync(dmgPath);
+              }
+              reject(err);
+            });
+          });
+
+          // Step 2: Mount DMG
+          updateProgress.progress = 90;
+          updateProgress.message = 'Mounting installer...';
+          console.log('Mounting DMG:', dmgPath);
+
+          const mountResult = await execAsync(`hdiutil attach "${dmgPath}" -nobrowse -quiet`, {
+            maxBuffer: 10 * 1024 * 1024
+          });
+
+          // Extract mount point from output (format: /dev/diskXsY    /Volumes/VolumeName)
+          const mountMatch = mountResult.stdout.match(/\/Volumes\/([^\s]+)/);
+          if (!mountMatch) {
+            throw new Error('Failed to mount DMG - could not find mount point');
+          }
+          const mountPoint = mountMatch[0];
+          console.log('DMG mounted at:', mountPoint);
+
+          // Step 3: Find the .app bundle in the mounted DMG
+          updateProgress.progress = 92;
+          updateProgress.message = 'Locating application...';
+
+          // Find the .app bundle in the mounted DMG
+          let foundApp = path.join(mountPoint, 'Vivaro.app');
+          if (!fsSync.existsSync(foundApp)) {
+            // Try to find any .app in the mount point
+            const files = fsSync.readdirSync(mountPoint);
+            const appFile = files.find(f => f.endsWith('.app'));
+            if (!appFile) {
+              throw new Error('Could not find Vivaro.app in the DMG');
+            }
+            foundApp = path.join(mountPoint, appFile);
+          }
+          console.log('Found app in DMG:', foundApp);
+
+          // Step 4: Find current app bundle location
+          updateProgress.progress = 94;
+          updateProgress.message = 'Locating current installation...';
+
+          let currentAppPath = null;
+
+          // Method 1: Check if we're inside a .app bundle
+          if (__dirname.includes('.app/Contents/Resources')) {
+            const appMatch = __dirname.match(/(.*\.app)/);
+            if (appMatch && fsSync.existsSync(appMatch[1])) {
+              currentAppPath = appMatch[1];
+            }
+          }
+
+          // Method 2: Try /Applications/Vivaro.app
+          if (!currentAppPath) {
+            const applicationsApp = '/Applications/Vivaro.app';
+            if (fsSync.existsSync(applicationsApp)) {
+              currentAppPath = applicationsApp;
+            }
+          }
+
+          if (!currentAppPath) {
+            throw new Error('Could not find current Vivaro.app installation. Please install manually from the DMG.');
+          }
+
+          console.log('Current app path:', currentAppPath);
+
+          // Step 5: Copy new app over old app
+          updateProgress.progress = 96;
+          updateProgress.message = 'Installing update...';
+          console.log(`Copying ${foundApp} to ${currentAppPath}...`);
+
+          // Remove old app
+          await execAsync(`rm -rf "${currentAppPath}"`, {
+            maxBuffer: 10 * 1024 * 1024
+          });
+
+          // Copy new app
+          await execAsync(`cp -R "${foundApp}" "${path.dirname(currentAppPath)}"`, {
+            maxBuffer: 10 * 1024 * 1024
+          });
+
+          // Step 6: Unmount DMG
+          updateProgress.progress = 98;
+          updateProgress.message = 'Cleaning up...';
+          await execAsync(`hdiutil detach "${mountPoint}" -quiet`, {
+            maxBuffer: 10 * 1024 * 1024
+          }).catch(err => {
+            console.warn('Failed to unmount DMG (non-fatal):', err.message);
+          });
+
+          // Delete downloaded DMG
+          try {
+            fsSync.unlinkSync(dmgPath);
+          } catch (e) {
+            console.warn('Failed to delete DMG (non-fatal):', e.message);
+          }
+
+          // Step 7: Update complete
+          updateProgress.progress = 100;
+          updateProgress.status = 'completed';
+          updateProgress.message = 'Update installed successfully! The application will restart.';
+
+          // Restart the app after a short delay
+          setTimeout(async () => {
+            try {
+              // Use osascript to restart the app
+              await execAsync(`osascript -e 'tell application "Vivaro" to quit'`, {
+                maxBuffer: 10 * 1024 * 1024
+              }).catch(() => {
+                // App might not be running, that's okay
+              });
+
+              // Launch the new app
+              await execAsync(`open "${currentAppPath}"`, {
+                maxBuffer: 10 * 1024 * 1024
+              });
+            } catch (restartError) {
+              console.error('Error restarting app:', restartError);
+              updateProgress.message = 'Update installed! Please restart the application manually.';
+            }
+          }, 2000);
+
+          return;
+        }
+
+        // Original git-based update logic for dev copies
         if (!isGitRepository(__dirname)) {
           updateProgress.status = 'error';
           updateProgress.progress = 0;
